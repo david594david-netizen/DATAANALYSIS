@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>社會科學統計分析系統 - 大衛林老師開發</title>
+    <title>長照學術統計分析系統 - 大衛林老師專版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -22,7 +22,7 @@
 
     <header class="bg-slate-800 text-white h-14 flex items-center px-6 shadow-md shrink-0 z-10">
         <i class="fa-solid fa-graduation-cap text-2xl mr-3 text-blue-400"></i>
-        <h1 class="text-lg font-bold tracking-wide">社會科學統計分析系統 <span class="text-xs font-normal text-slate-300 ml-2">符合南開科大福祉所 & APA 7th 規範</span></h1>
+        <h1 class="text-lg font-bold tracking-wide">社會科學研究統計分析系統 <span class="text-xs font-normal text-slate-300 ml-2">符合南開科大福祉所 & APA 7th 規範 & 大衛林開發</span></h1>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
@@ -587,19 +587,76 @@
         }
 
         function runCorrelation() {
-            const x = document.getElementById('var-x').value;
-            const y = document.getElementById('var-y').value;
-            if(!x || !y) throw new Error("請選擇變項");
+            const xName = document.getElementById('var-x').value;
+            const yName = document.getElementById('var-y').value;
+            if(!xName || !yName) throw new Error("請選擇變項");
             
+            // 提取有效的數據對
+            let validX = [];
+            let validY = [];
+            rawData.forEach(row => {
+                const vx = parseFloat(row[xName]);
+                const vy = parseFloat(row[yName]);
+                if (!isNaN(vx) && !isNaN(vy)) {
+                    validX.push(vx);
+                    validY.push(vy);
+                }
+            });
+
+            const n = validX.length;
+            if (n < 3) throw new Error("有效樣本數不足，無法計算相關性。");
+
+            // 計算平均數
+            const meanX = calcMean(validX);
+            const meanY = calcMean(validY);
+
+            // 計算共變異數與標準差的分子分母
+            let numerator = 0;
+            let sumSqX = 0;
+            let sumSqY = 0;
+
+            for (let i = 0; i < n; i++) {
+                const dx = validX[i] - meanX;
+                const dy = validY[i] - meanY;
+                numerator += dx * dy;
+                sumSqX += dx * dx;
+                sumSqY += dy * dy;
+            }
+
+            // 計算 Pearson r
+            let r = 0;
+            if (sumSqX !== 0 && sumSqY !== 0) {
+                r = numerator / Math.sqrt(sumSqX * sumSqY);
+            }
+
+            // 運用 t 分配檢定 r 的顯著性
+            let t = 0;
+            if (Math.abs(r) !== 1) {
+                t = r * Math.sqrt((n - 2) / (1 - r * r));
+            } else {
+                t = Infinity; // 完全相關
+            }
+            
+            const absT = Math.abs(t);
+            let stars = "";
+            if (absT > 3.29) { stars = "***"; }
+            else if (absT > 2.58) { stars = "**"; }
+            else if (absT > 1.96) { stars = "*"; }
+
+            // 符合 APA 7th 格式：小於 1 的數值，小數點前不加 0
+            let rStr = r.toFixed(3);
+            if (rStr.startsWith('0.')) rStr = rStr.substring(1);
+            else if (rStr.startsWith('-0.')) rStr = '-' + rStr.substring(2);
+
             let tableIndex = reportHistory.length + 1;
-            let html = `<div class="table-title">表4.${tableIndex} 「${x}」與「${y}」之 Pearson 相關分析表</div>`;
-            html += `<table class="academic-table"><thead><tr><th>變項</th><th>${x}</th><th>${y}</th></tr></thead><tbody>`;
-            html += `<tr><td>1. ${x}</td><td>1</td><td>.56***</td></tr>`;
-            html += `<tr><td>2. ${y}</td><td>.56***</td><td>1</td></tr>`;
+            let html = `<div class="table-title">表4.${tableIndex} 「${xName}」與「${yName}」之 Pearson 相關分析表</div>`;
+            html += `<table class="academic-table"><thead><tr><th>變項</th><th>1. ${xName}</th><th>2. ${yName}</th></tr></thead><tbody>`;
+            html += `<tr><td>1. ${xName}</td><td>1</td><td>${rStr}${stars}</td></tr>`;
+            html += `<tr><td>2. ${yName}</td><td>${rStr}${stars}</td><td>1</td></tr>`;
             html += `</tbody></table><p style="text-align:left; font-size:10pt;">註：* p < .05, ** p < .01, *** p < .001</p>`;
             
             document.getElementById('academic-output').innerHTML = html;
-            document.getElementById('prof-message').innerHTML = `相關分析是在看兩個連續變數（構面）是否「同方向」變化。表中的 .56 代表中度正相關，表示當「${x}」越強時，「${y}」也會跟著變強。但切記，相關不代表因果關係！`;
+            document.getElementById('prof-message').innerHTML = `相關分析是在看兩個連續變數（構面）是否「同方向」變化。表中的相關係數 <i>r</i> = ${r.toFixed(2)}，這代表「${xName}」與「${yName}」呈現${r>0?'正':'負'}相關。寫作時，請依據 APA 7th 格式解釋星號（顯著性），但切記：相關不代表因果關係喔！`;
         }
 
         function runRegression() {
