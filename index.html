@@ -130,6 +130,7 @@
         let demographicVars = []; 
         let constructVars = []; 
         let itemsVars = []; 
+        let constructItemMapping = {};
         let currentAnalysisType = '';
         let reportHistory = []; 
 
@@ -170,6 +171,7 @@
             
             demographicVars = [];
             constructVars = [];
+            constructItemMapping = {};
             updateItemsVars();
             
             document.getElementById('preprocessing-panel').classList.remove('hidden');
@@ -237,6 +239,7 @@
             });
 
             constructVars.push(constructName);
+            constructItemMapping[constructName] = selectedItems;
             document.getElementById('construct-name').value = '';
             
             const list = document.getElementById('created-constructs-list');
@@ -406,28 +409,38 @@
         }
 
         function runItemStats() {
-            if(itemsVars.length === 0) throw new Error("無可用題項");
-            let stats = itemsVars.map(v => {
-                const data = getNumData(v);
-                const mean = calcMean(data);
-                const std = calcStd(data, mean);
-                return { name: v, mean: mean, std: std };
+            if(constructVars.length === 0) throw new Error("請先在「資料準備」定義研究構面，系統將依據構面為您產出各題項的排序報表。");
+            
+            let html = '';
+            let baseTableIndex = reportHistory.length + 1;
+            let currentTableIndex = baseTableIndex;
+            
+            constructVars.forEach((constructName) => {
+                const items = constructItemMapping[constructName];
+                if (!items || items.length === 0) return;
+                
+                let stats = items.map(v => {
+                    const data = getNumData(v);
+                    const mean = calcMean(data);
+                    const std = calcStd(data, mean);
+                    return { name: v, mean: mean, std: std };
+                });
+                
+                // Sort by mean descending
+                stats.sort((a, b) => b.mean - a.mean);
+                
+                html += `<div class="table-title">表4.${currentTableIndex} 【${constructName}】各題項描述性統計與平均數排序表</div>`;
+                html += `<table class="academic-table"><thead><tr><th>排序</th><th>題項名稱</th><th>平均數 (M)</th><th>標準差 (SD)</th></tr></thead><tbody>`;
+                
+                stats.forEach((s, i) => {
+                    html += `<tr><td>${i+1}</td><td>${s.name}</td><td>${s.mean.toFixed(2)}</td><td>${s.std.toFixed(2)}</td></tr>`;
+                });
+                html += `</tbody></table><br>`;
+                currentTableIndex++;
             });
-            
-            // Sort by mean descending
-            stats.sort((a, b) => b.mean - a.mean);
-            
-            let tableIndex = reportHistory.length + 1;
-            let html = `<div class="table-title">表4.${tableIndex} 各題項描述性統計與平均數排序表</div>`;
-            html += `<table class="academic-table"><thead><tr><th>排序</th><th>題項名稱</th><th>平均數 (M)</th><th>標準差 (SD)</th></tr></thead><tbody>`;
-            
-            stats.forEach((s, i) => {
-                html += `<tr><td>${i+1}</td><td>${s.name}</td><td>${s.mean.toFixed(2)}</td><td>${s.std.toFixed(2)}</td></tr>`;
-            });
-            html += `</tbody></table>`;
             
             document.getElementById('academic-output').innerHTML = html;
-            document.getElementById('prof-message').innerHTML = `同學，這張表非常關鍵！我們把所有單一題項依照平均數由高到低排序了。得分最高的前三題，往往代表受訪者最強烈的感受或最同意的觀點，這是你在結論章節（第五章）提出實務管理建議的最佳切入點。`;
+            document.getElementById('prof-message').innerHTML = `同學，你的思考非常縝密！在論文第四章中，將所有題目混在一起看會失去焦點。我們現在「依據構面」分別產出題項排序表。得分最高的前三題，往往代表受訪者在該構面中最同意的觀點，這是你在第五章提出實務管理建議的最佳切入點。另外，輸出的表標題與內容皆已完美符合南開福祉所格式。`;
         }
 
         function runMeans() {
