@@ -132,18 +132,27 @@
             <!-- 視窗 1: 資料輸入 -->
             <div id="view-data-input" class="block max-w-4xl mx-auto">
                 <div class="bg-white rounded-xl shadow-sm border p-6 mb-6">
-                    <h3 class="text-lg font-bold mb-2"><i class="fa-brands fa-google mr-2 text-green-600"></i>匯入 Google 試算表資料</h3>
+                    <h3 class="text-lg font-bold mb-2"><i class="fa-solid fa-file-excel mr-2 text-green-600"></i>上傳 Google 試算表資料 (CSV 格式)</h3>
                     <p class="text-sm text-slate-600 mb-4">
-                        請在你的 Google 試算表中，將包含「標題列」的所有數據範圍選取並按下 <code>Ctrl+C</code>，然後在下方文字框中貼上 (<code>Ctrl+V</code>)。
+                        請在你的 Google 試算表中，點選「檔案」>「下載」>「逗號分隔值 (.csv)」，然後將下載的檔案上傳至此。
                     </p>
-                    <textarea id="data-textarea" class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm mb-4 bg-slate-50 placeholder-slate-400" placeholder="範例：&#10;性別&#9;教育程度&#9;科技焦慮&#9;知覺易用性&#9;使用意願&#10;男&#9;大學以上&#9;2.5&#9;4.2&#9;4.5&#10;女&#9;高中職&#9;3.8&#9;3.1&#9;3.5..."></textarea>
                     
+                    <!-- 檔案上傳區塊 -->
+                    <div class="flex items-center justify-center w-full mb-4">
+                        <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-40 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-3"></i>
+                                <p class="mb-2 text-sm text-slate-500"><span class="font-semibold">點擊上傳</span> 或拖曳檔案至此</p>
+                                <p class="text-xs text-slate-500">僅支援 CSV 檔案</p>
+                            </div>
+                            <input id="dropzone-file" type="file" accept=".csv" class="hidden" onchange="handleFileUpload(event)" />
+                        </label>
+                    </div>
+                    <div id="file-name-display" class="text-sm text-blue-600 font-medium mb-4 hidden"></div>
+
                     <div class="flex justify-between items-center">
                         <button onclick="loadSampleData()" class="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors">
                             <i class="fa-solid fa-lightbulb mr-1"></i> 載入「長者智慧輔具」範例資料
-                        </button>
-                        <button onclick="parseAndSaveData()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm transition-colors">
-                            解析並儲存資料 <i class="fa-solid fa-arrow-right ml-1"></i>
                         </button>
                     </div>
                 </div>
@@ -265,53 +274,60 @@
 
         // --- 載入範例資料 ---
         function loadSampleData() {
-            const sample = `性別\t教育程度\t科技焦慮\t知覺易用性\t主觀規範\t使用意願
-男\t國中以下\t4.5\t2.1\t3.0\t2.5
-女\t高中職\t3.8\t3.2\t4.0\t3.8
-男\t大學以上\t2.1\t4.5\t4.2\t4.8
-女\t大學以上\t2.5\t4.2\t4.5\t4.6
-男\t高中職\t3.5\t3.5\t3.5\t3.7
-女\t國中以下\t4.8\t1.8\t2.5\t2.0
-男\t大學以上\t1.8\t4.8\t4.8\t5.0
-女\t高中職\t3.2\t3.8\t4.1\t4.0
-男\t國中以下\t4.2\t2.5\t3.2\t2.8
-女\t大學以上\t2.0\t4.6\t4.5\t4.9
-男\t高中職\t3.0\t3.9\t3.8\t4.1
-女\t國中以下\t4.6\t2.0\t2.8\t2.2
-男\t大學以上\t1.5\t4.9\t4.7\t5.0
-女\t高中職\t3.4\t3.6\t3.9\t3.9
-男\t國中以下\t4.0\t2.8\t3.5\t3.1
-女\t大學以上\t2.2\t4.4\t4.6\t4.7`;
-            document.getElementById('data-textarea').value = sample;
+            const sample = `性別,教育程度,科技焦慮,知覺易用性,主觀規範,使用意願\n男,國中以下,4.5,2.1,3.0,2.5\n女,高中職,3.8,3.2,4.0,3.8\n男,大學以上,2.1,4.5,4.2,4.8\n女,大學以上,2.5,4.2,4.5,4.6\n男,高中職,3.5,3.5,3.5,3.7\n女,國中以下,4.8,1.8,2.5,2.0\n男,大學以上,1.8,4.8,4.8,5.0\n女,高中職,3.2,3.8,4.1,4.0\n男,國中以下,4.2,2.5,3.2,2.8\n女,大學以上,2.0,4.6,4.5,4.9\n男,高中職,3.0,3.9,3.8,4.1\n女,國中以下,4.6,2.0,2.8,2.2\n男,大學以上,1.5,4.9,4.7,5.0\n女,高中職,3.4,3.6,3.9,3.9\n男,國中以下,4.0,2.8,3.5,3.1\n女,大學以上,2.2,4.4,4.6,4.7`;
+            parseCSVData(sample);
+            document.getElementById('file-name-display').innerText = "已載入範例資料";
+            document.getElementById('file-name-display').classList.remove('hidden');
         }
 
-        // --- 解析文本資料 (支援 Tab 或逗號分隔) ---
-        function parseAndSaveData() {
-            const text = document.getElementById('data-textarea').value.trim();
-            if (!text) {
-                showModal('錯誤', '請先貼上資料或載入範例資料！');
+        // --- 處理檔案上傳 ---
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.endsWith('.csv')) {
+                showModal('檔案格式錯誤', '請上傳 CSV 格式的檔案。');
                 return;
             }
 
-            const lines = text.split('\n');
+            document.getElementById('file-name-display').innerText = `已選擇檔案: ${file.name}`;
+            document.getElementById('file-name-display').classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSVData(text);
+            };
+            reader.onerror = function() {
+                showModal('讀取錯誤', '無法讀取檔案，請稍後再試。');
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 解析 CSV 資料 ---
+        function parseCSVData(text) {
+            if (!text.trim()) {
+                showModal('錯誤', '檔案內容為空！');
+                return;
+            }
+
+            const lines = text.trim().split('\n');
             if (lines.length < 2) {
                 showModal('錯誤', '資料至少需要包含一行標題列與一行數據！');
                 return;
             }
 
-            // 判斷分隔符號 (Tab 或 逗號)
-            const separator = lines[0].includes('\t') ? '\t' : ',';
-            variables = lines[0].split(separator).map(v => v.trim());
+            // 簡單處理逗號分隔，若有包含逗號的字串欄位會出錯 (簡化版)
+            variables = lines[0].split(',').map(v => v.trim());
             
             rawData = [];
             for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(separator);
+                const values = lines[i].split(',');
                 if (values.length !== variables.length) continue; // 忽略欄數不符的行
                 
                 let rowObj = {};
                 variables.forEach((variable, index) => {
-                    let val = values[index].trim();
-                    // 嘗試轉換為數字，若為 NaN 則保留原字串 (類別變項)
+                    let val = values[index] ? values[index].trim() : "";
                     let numVal = parseFloat(val);
                     rowObj[variable] = isNaN(numVal) ? val : numVal;
                 });
@@ -319,7 +335,7 @@
             }
 
             if (rawData.length === 0) {
-                showModal('錯誤', '無法解析資料，請確認格式是否正確。');
+                showModal('錯誤', '無法解析資料，請確認格式是否為正確的 CSV。');
                 return;
             }
 
