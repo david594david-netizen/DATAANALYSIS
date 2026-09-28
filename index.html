@@ -164,6 +164,33 @@
                         <!-- 變數標籤將生成於此 -->
                     </div>
                 </div>
+                
+                <div id="construct-creation" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-6 mt-6">
+                    <h4 class="text-blue-800 font-bold mb-2"><i class="fa-solid fa-layer-group mr-2"></i>資料前處理：定義研究構面</h4>
+                    <p class="text-sm text-blue-700 mb-4">在進行推論性統計前，請將同一構面的多個問卷題項合併，系統將為您計算平均數並產生新的構面變數，供後續分析使用。</p>
+                    
+                    <div class="flex flex-col md:flex-row gap-6 mb-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">1. 構面名稱命名</label>
+                            <input type="text" id="construct-name" class="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" placeholder="例如：知覺有用性">
+                            <p class="text-xs text-slate-500 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> 請填寫論文架構圖中的構面名稱</p>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">2. 選擇所屬題項 (按住 Ctrl/Cmd 可複選)</label>
+                            <select id="construct-items" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white" multiple size="5">
+                                <!-- 動態生成選項 -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button onclick="createConstruct()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors">
+                        <i class="fa-solid fa-calculator mr-2"></i> 計算平均數並建立構面
+                    </button>
+                    
+                    <div id="created-constructs" class="mt-5 flex flex-wrap gap-2">
+                        <!-- 已建立的構面會顯示於此 -->
+                    </div>
+                </div>
             </div>
 
             <!-- 視窗 2: 分析設定與結果 -->
@@ -341,13 +368,75 @@
 
             // 更新 UI
             document.getElementById('data-summary').classList.remove('hidden');
-            document.getElementById('data-stats-text').innerText = `成功讀取 ${rawData.length} 筆有效樣本，包含 ${variables.length} 個研究變項。`;
+            document.getElementById('data-stats-text').innerText = `成功讀取 ${rawData.length} 筆有效樣本，包含 ${variables.length} 個原始研究變項。`;
             
             const tagsContainer = document.getElementById('variable-tags');
             tagsContainer.innerHTML = '';
             variables.forEach(v => {
                 tagsContainer.innerHTML += `<span class="px-2 py-1 bg-white rounded border border-green-300 text-green-700 text-xs font-bold">${v}</span>`;
             });
+
+            const constructItemsSelect = document.getElementById('construct-items');
+            constructItemsSelect.innerHTML = variables.map(v => `<option value="${v}">${v}</option>`).join('');
+            document.getElementById('construct-creation').classList.remove('hidden');
+            document.getElementById('created-constructs').innerHTML = ''; // 清空之前建立的構面標籤
+        }
+
+        // --- 建立研究構面 (計算平均數) ---
+        function createConstruct() {
+            const name = document.getElementById('construct-name').value.trim();
+            const items = getSelected('construct-items');
+
+            if (!name) {
+                showModal('大衛林老師提醒', '同學，研究要有嚴謹的架構，請先幫這個構面取個名字喔！（例如：科技焦慮）');
+                return;
+            }
+            if (items.length < 1) {
+                showModal('大衛林老師提醒', '你需要至少選擇一個以上的題項來組成構面喔！通常一個構面會包含 3 到 5 題。');
+                return;
+            }
+            if (variables.includes(name)) {
+                showModal('大衛林老師提醒', '這個變數名稱已經存在了，為了避免分析時混淆，請換一個專屬的構面名稱。');
+                return;
+            }
+
+            // 計算平均數並加入原始資料陣列 (rawData)
+            let validCount = 0;
+            rawData.forEach(row => {
+                let sum = 0;
+                let count = 0;
+                items.forEach(item => {
+                    let val = row[item];
+                    if (typeof val === 'number') {
+                        sum += val;
+                        count++;
+                    }
+                });
+                // 只有當受訪者在此構面有填答有效數值時，才計算平均數
+                row[name] = count > 0 ? (sum / count) : null;
+                if (count > 0) validCount++;
+            });
+
+            // 將新構面加入變數清單
+            variables.push(name);
+
+            // 更新介面
+            document.getElementById('construct-name').value = '';
+            document.getElementById('construct-items').selectedIndex = -1; // 取消選取
+            
+            // 更新上方資料摘要的標籤
+            const tagsContainer = document.getElementById('variable-tags');
+            tagsContainer.innerHTML += `<span class="px-2 py-1 bg-blue-100 rounded border border-blue-400 text-blue-800 text-xs font-bold shadow-sm"><i class="fa-solid fa-star text-yellow-500 mr-1"></i>${name} (構面)</span>`;
+            
+            // 更新已建立的構面提示區
+            const createdContainer = document.getElementById('created-constructs');
+            createdContainer.innerHTML += `<span class="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-full border border-indigo-200"><i class="fa-solid fa-puzzle-piece mr-1"></i>${name} (由 ${items.length} 題組成)</span>`;
+
+            // 同步更新選擇題項的下拉選單，讓新構面也能被其他構面參考 (雖然少見)
+            const constructItemsSelect = document.getElementById('construct-items');
+            constructItemsSelect.innerHTML = variables.map(v => `<option value="${v}">${v}</option>`).join('');
+
+            showModal('建立成功', `很棒！我們已經為 ${validCount} 筆樣本成功計算出「${name}」的平均數。現在你可以到左側的「統計分析法」選單，用這個新構面來跑 t檢定或迴歸分析了！\n\n記得，在論文第三章研究方法中，要交代這個構面是如何從哪幾個題項合併而來的喔。`);
         }
 
         // --- 設定分析畫面與下拉選單 ---
