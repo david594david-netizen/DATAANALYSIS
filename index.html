@@ -164,32 +164,32 @@
                         <!-- 變數標籤將生成於此 -->
                     </div>
                 </div>
-                
-                <div id="construct-creation" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-6 mt-6">
-                    <h4 class="text-blue-800 font-bold mb-2"><i class="fa-solid fa-layer-group mr-2"></i>資料前處理：定義研究構面</h4>
-                    <p class="text-sm text-blue-700 mb-4">在進行推論性統計前，請將同一構面的多個問卷題項合併，系統將為您計算平均數並產生新的構面變數，供後續分析使用。</p>
+
+                <!-- 新增：人口學變項設定區塊 -->
+                <div id="demographic-setting" class="hidden bg-orange-50 border border-orange-200 rounded-xl p-6 mt-6">
+                    <h4 class="text-orange-800 font-bold mb-2"><i class="fa-solid fa-users-gear mr-2"></i>資料前處理一：設定人口學變項 (類別變數)</h4>
+                    <p class="text-sm text-orange-700 mb-4">為了避免系統將問卷中代表性別(如1=男,2=女)等數字代碼誤判為連續變數，請先在此指定哪些是「人口學變項」。指定的變項將只出現在次數分配與分組選項中。</p>
                     
                     <div class="flex flex-col md:flex-row gap-6 mb-4">
                         <div class="flex-1">
-                            <label class="block text-sm font-bold text-slate-700 mb-2">1. 構面名稱命名</label>
-                            <input type="text" id="construct-name" class="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" placeholder="例如：知覺有用性">
-                            <p class="text-xs text-slate-500 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> 請填寫論文架構圖中的構面名稱</p>
-                        </div>
-                        <div class="flex-1">
-                            <label class="block text-sm font-bold text-slate-700 mb-2">2. 選擇所屬題項 (按住 Ctrl/Cmd 可複選)</label>
-                            <select id="construct-items" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white" multiple size="5">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">選擇人口學變項 (按住 Ctrl/Cmd 可複選)</label>
+                            <select id="demo-items" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-orange-500 bg-white" multiple size="5">
                                 <!-- 動態生成選項 -->
                             </select>
                         </div>
                     </div>
                     
-                    <button onclick="createConstruct()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors">
-                        <i class="fa-solid fa-calculator mr-2"></i> 計算平均數並建立構面
+                    <button onclick="setDemographics()" class="w-full md:w-auto bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors">
+                        <i class="fa-solid fa-check mr-2"></i> 設為人口學變項
                     </button>
                     
-                    <div id="created-constructs" class="mt-5 flex flex-wrap gap-2">
-                        <!-- 已建立的構面會顯示於此 -->
+                    <div id="set-demo-tags" class="mt-5 flex flex-wrap gap-2">
+                        <!-- 已設定的人口學變項會顯示於此 -->
                     </div>
+                </div>
+                
+                <div id="construct-creation" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-6 mt-6">
+                    <h4 class="text-blue-800 font-bold mb-2"><i class="fa-solid fa-layer-group mr-2"></i>資料前處理二：定義研究構面 (連續變數)</h4>
                 </div>
             </div>
 
@@ -269,6 +269,7 @@
         // --- 應用程式狀態管理 ---
         let rawData = []; // 原始陣列資料 (物件陣列)
         let variables = []; // 變數名稱清單
+        let demographicVars = []; // 新增：人口學變項清單 (類別變數)
         let currentAnalysisType = ''; // 當前選擇的分析方法
 
         // --- 輔助工具函式 ---
@@ -366,6 +367,9 @@
                 return;
             }
 
+            // 初始化與清空狀態
+            demographicVars = [];
+
             // 更新 UI
             document.getElementById('data-summary').classList.remove('hidden');
             document.getElementById('data-stats-text').innerText = `成功讀取 ${rawData.length} 筆有效樣本，包含 ${variables.length} 個原始研究變項。`;
@@ -376,10 +380,46 @@
                 tagsContainer.innerHTML += `<span class="px-2 py-1 bg-white rounded border border-green-300 text-green-700 text-xs font-bold">${v}</span>`;
             });
 
+            // 初始化人口學變項下拉選單
+            const demoItemsSelect = document.getElementById('demo-items');
+            demoItemsSelect.innerHTML = variables.map(v => `<option value="${v}">${v}</option>`).join('');
+            document.getElementById('demographic-setting').classList.remove('hidden');
+            document.getElementById('set-demo-tags').innerHTML = '';
+
+            // 初始化構面下拉選單
             const constructItemsSelect = document.getElementById('construct-items');
             constructItemsSelect.innerHTML = variables.map(v => `<option value="${v}">${v}</option>`).join('');
             document.getElementById('construct-creation').classList.remove('hidden');
             document.getElementById('created-constructs').innerHTML = ''; // 清空之前建立的構面標籤
+        }
+
+        // --- 新增：設定人口學變數 ---
+        function setDemographics() {
+            const selected = getSelected('demo-items');
+            if (selected.length === 0) {
+                showModal('大衛林老師提醒', '請至少選擇一個變項作為人口學變數喔！');
+                return;
+            }
+            
+            selected.forEach(v => {
+                if (!demographicVars.includes(v)) {
+                    demographicVars.push(v);
+                }
+            });
+            
+            // 更新 UI 標籤
+            const demoTagsContainer = document.getElementById('set-demo-tags');
+            demoTagsContainer.innerHTML = demographicVars.map(v => 
+                `<span class="px-3 py-1.5 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-300"><i class="fa-solid fa-user-tag mr-1"></i>${v}</span>`
+            ).join('');
+            
+            // 從「構面選項」中移除這些人口學變數，避免混淆李克特尺度
+            const constructItemsSelect = document.getElementById('construct-items');
+            constructItemsSelect.innerHTML = variables
+                .filter(v => !demographicVars.includes(v))
+                .map(v => `<option value="${v}">${v}</option>`).join('');
+                
+            showModal('設定成功', `很棒！已將「${selected.join('、')}」設為人口學變項。\n\n老師幫你上了鎖，接下來在迴歸分析或計算平均數時，這些變項就不會出來搗亂了，它們只會乖乖出現在次數分配與分組檢定中！`);
         }
 
         // --- 建立研究構面 (計算平均數) ---
@@ -434,7 +474,9 @@
 
             // 同步更新選擇題項的下拉選單，讓新構面也能被其他構面參考 (雖然少見)
             const constructItemsSelect = document.getElementById('construct-items');
-            constructItemsSelect.innerHTML = variables.map(v => `<option value="${v}">${v}</option>`).join('');
+            constructItemsSelect.innerHTML = variables
+                .filter(v => !demographicVars.includes(v))
+                .map(v => `<option value="${v}">${v}</option>`).join('');
 
             showModal('建立成功', `很棒！我們已經為 ${validCount} 筆樣本成功計算出「${name}」的平均數。現在你可以到左側的「統計分析法」選單，用這個新構面來跑 t檢定或迴歸分析了！\n\n記得，在論文第三章研究方法中，要交代這個構面是如何從哪幾個題項合併而來的喔。`);
         }
@@ -480,22 +522,16 @@
                 let filteredVars = variables;
                 
                 if (filterType === 'cat') {
-                    // 僅過濾出類別變項 (字串型態，即人口學變項)
-                    filteredVars = variables.filter(v => {
-                        let validVal = rawData.find(row => row[v] !== null && row[v] !== "");
-                        return validVal && typeof validVal[v] === 'string';
-                    });
+                    // 嚴格過濾：只顯示使用者明確定義的「人口學變項」
+                    filteredVars = demographicVars;
                 } else if (filterType === 'cont') {
-                    // 僅過濾出連續變項 (數值型態，即李克特尺度與構面)
-                    filteredVars = variables.filter(v => {
-                        let validVal = rawData.find(row => row[v] !== null && row[v] !== "");
-                        return validVal && typeof validVal[v] === 'number';
-                    });
+                    // 嚴格過濾：排除人口學變項，只留下連續變數 (李克特題項與構面)
+                    filteredVars = variables.filter(v => !demographicVars.includes(v));
                 }
 
                 let options = filteredVars.map(v => `<option value="${v}">${v}</option>`).join('');
                 if (filteredVars.length === 0) {
-                    options = `<option disabled>無符合此屬性的變項，請確認資料格式</option>`;
+                    options = `<option disabled>無符合此屬性的變項，請先至「資料準備」設定</option>`;
                 }
 
                 return `
