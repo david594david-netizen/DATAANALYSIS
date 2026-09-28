@@ -189,7 +189,28 @@
                 </div>
                 
                 <div id="construct-creation" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-6 mt-6">
-                    <h4 class="text-blue-800 font-bold mb-2"><i class="fa-solid fa-layer-group mr-2"></i>資料前處理二：定義研究構面 (連續變數)</h4>
+                    <h4 class="text-blue-800 font-bold mb-2"><i class="fa-solid fa-layer-group mr-2"></i>資料前處理二：設定構面名稱與題項 (連續變數)</h4>
+                    <p class="text-sm text-blue-700 mb-4">學術研究中應避免使用單一題項進行推論。請在此將同屬一個概念的多個題項合併。後續的檢定與迴歸分析，將「只會」顯示你建立的構面。</p>
+                    
+                    <div class="flex flex-col md:flex-row gap-6 mb-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">1. 選擇組成題項 (按住 Ctrl/Cmd 可複選)</label>
+                            <select id="construct-items" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white" multiple size="5">
+                                <!-- 動態生成選項 -->
+                            </select>
+                        </div>
+                        <div class="flex-1 flex flex-col justify-center">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">2. 命名新研究構面 (例如：知覺易用性)</label>
+                            <input type="text" id="construct-name" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white mb-4" placeholder="請輸入構面名稱...">
+                            <button onclick="createConstruct()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors">
+                                <i class="fa-solid fa-calculator mr-2"></i> 計算平均數並建立構面
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="created-constructs" class="mt-5 flex flex-wrap gap-2">
+                        <!-- 已建立的構面會顯示於此 -->
+                    </div>
                 </div>
             </div>
 
@@ -270,6 +291,7 @@
         let rawData = []; // 原始陣列資料 (物件陣列)
         let variables = []; // 變數名稱清單
         let demographicVars = []; // 新增：人口學變項清單 (類別變數)
+        let constructVars = []; // 新增：構面清單 (連續變數，專供推論統計使用)
         let currentAnalysisType = ''; // 當前選擇的分析方法
 
         // --- 輔助工具函式 ---
@@ -369,6 +391,7 @@
 
             // 初始化與清空狀態
             demographicVars = [];
+            constructVars = [];
 
             // 更新 UI
             document.getElementById('data-summary').classList.remove('hidden');
@@ -457,8 +480,9 @@
                 if (count > 0) validCount++;
             });
 
-            // 將新構面加入變數清單
+            // 將新構面加入變數清單與專屬構面清單
             variables.push(name);
+            constructVars.push(name);
 
             // 更新介面
             document.getElementById('construct-name').value = '';
@@ -525,13 +549,13 @@
                     // 嚴格過濾：只顯示使用者明確定義的「人口學變項」
                     filteredVars = demographicVars;
                 } else if (filterType === 'cont') {
-                    // 嚴格過濾：排除人口學變項，只留下連續變數 (李克特題項與構面)
-                    filteredVars = variables.filter(v => !demographicVars.includes(v));
+                    // 嚴格過濾：只顯示使用者合併生成的「研究構面」，不再出現單一題項與人口學變項
+                    filteredVars = constructVars;
                 }
 
                 let options = filteredVars.map(v => `<option value="${v}">${v}</option>`).join('');
                 if (filteredVars.length === 0) {
-                    options = `<option disabled>無符合此屬性的變項，請先至「資料準備」設定</option>`;
+                    options = `<option disabled>請先至「資料準備」設定對應的變項或構面</option>`;
                 }
 
                 return `
