@@ -105,6 +105,7 @@
             
             <p class="text-xs text-slate-400 mt-6 mb-2 uppercase tracking-wider">統計分析法</p>
             <button onclick="setupAnalysis('descriptive')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-users w-6"></i> 敘述性統計 (樣本分析)</button>
+            <button onclick="setupAnalysis('item_stats')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-list-ol w-6"></i> 各題項描述性統計</button>
             <button onclick="setupAnalysis('means')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-chart-simple w-6"></i> 各構面平均數與標準差</button>
             <button onclick="setupAnalysis('ttest')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-not-equal w-6"></i> 獨立樣本 t 檢定</button>
             <button onclick="setupAnalysis('anova')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-chart-column w-6"></i> 單因子變異數分析 (ANOVA)</button>
@@ -519,6 +520,7 @@
 
             const titleMap = {
                 'descriptive': '敘述性統計 (樣本特性)',
+                'item_stats': '各題項描述性統計',
                 'means': '各構面平均數與標準差',
                 'ttest': '獨立樣本 t 檢定',
                 'anova': '單因子變異數分析 (ANOVA)',
@@ -551,6 +553,9 @@
                 } else if (filterType === 'cont') {
                     // 嚴格過濾：只顯示使用者合併生成的「研究構面」，不再出現單一題項與人口學變項
                     filteredVars = constructVars;
+                } else if (filterType === 'pure_items') {
+                    // 嚴格過濾：只顯示尚未被歸類的純題項 (李克特尺度)
+                    filteredVars = variables.filter(v => !demographicVars.includes(v) && !constructVars.includes(v));
                 }
 
                 let options = filteredVars.map(v => `<option value="${v}">${v}</option>`).join('');
@@ -574,16 +579,19 @@
                 case 'descriptive':
                     container.innerHTML = genSelect('var-cat', '請選擇要分析的人口學變項 (僅顯示類別/次數分配)', true, 'cat');
                     break;
+                case 'item_stats':
+                    container.innerHTML = genSelect('var-items', '請選擇要分析的題項 (僅顯示李克特尺度題項)', true, 'pure_items');
+                    break;
                 case 'means':
-                    container.innerHTML = genSelect('var-cont', '請選擇要計算的連續變項 (僅顯示李克特尺度/構面)', true, 'cont');
+                    container.innerHTML = genSelect('var-cont', '請選擇要計算的連續變項 (僅顯示建立好的構面)', true, 'cont');
                     break;
                 case 'ttest':
-                    container.innerHTML = genSelect('var-indep', '分組變項 (自變項，如：性別)', false, 'cat');
-                    container.innerHTML += genSelect('var-dep', '檢定變項 (依變項，連續數值)', false, 'cont');
+                    container.innerHTML = genSelect('var-indep', '分組變項 (限定為人口學變項，如：性別)', false, 'cat');
+                    container.innerHTML += genSelect('var-dep', '檢定變項 (限定為構面)', false, 'cont');
                     break;
                 case 'anova':
-                    container.innerHTML = genSelect('var-indep', '因子變項 (自變項，>3個類別，如：教育程度)', false, 'cat');
-                    container.innerHTML += genSelect('var-dep', '依變項 (連續數值)', false, 'cont');
+                    container.innerHTML = genSelect('var-indep', '因子變項 (限定為人口學變項，>3個類別，如：教育程度)', false, 'cat');
+                    container.innerHTML += genSelect('var-dep', '依變項 (限定為構面)', false, 'cont');
                     break;
                 case 'correlation':
                     container.innerHTML = genSelect('var-cont', '請選擇要進行相關分析的變項 (至少選2個)', true, 'cont');
@@ -603,6 +611,7 @@
             try {
                 switch(currentAnalysisType) {
                     case 'descriptive': runDescriptive(); break;
+                    case 'item_stats': runItemStats(); break;
                     case 'means': runMeans(); break;
                     case 'ttest': runTtest(); break;
                     case 'anova': runAnova(); break;
@@ -674,6 +683,63 @@
 
             document.getElementById('academic-output').innerHTML = html;
             document.getElementById('prof-feedback-text').innerText = profText;
+        }
+
+        // === 1.5 各題項描述性統計與排序 ===
+        function runItemStats() {
+            const vars = getSelected('var-items');
+            if (vars.length === 0) throw new Error("請至少選擇一個題項。");
+
+            let stats = [];
+            vars.forEach(v => {
+                let sum = 0;
+                let values = [];
+                rawData.forEach(row => {
+                    if (typeof row[v] === 'number') {
+                        sum += row[v];
+                        values.push(row[v]);
+                    }
+                });
+                const n = values.length;
+                if(n === 0) return;
+                
+                const mean = sum / n;
+                const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (n - 1);
+                const sd = Math.sqrt(variance);
+
+                stats.push({ name: v, mean: mean, sd: sd });
+            });
+
+            // 排序：平均數由高到低
+            stats.sort((a, b) => b.mean - a.mean);
+
+            let rowsHtml = '';
+            stats.forEach(item => {
+                rowsHtml += `<tr>
+                    <td style="text-align: left;">${item.name}</td>
+                    <td>${item.mean.toFixed(2)}</td>
+                    <td>${item.sd.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            const html = `
+                <div class="academic-table-title">表4.X 各題項描述性統計與排序表</div>
+                <table class="academic-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">題項名稱</th>
+                            <th>平均數 (M)</th>
+                            <th>標準差 (SD)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('academic-output').innerHTML = html;
+            document.getElementById('prof-feedback-text').innerText = `在這份報表中，老師已經幫你把各題項的平均數由高至低排好序了。在論文的第四章「現況分析」中，你可以先針對得分最高與最低的前三名題項進行探討，說明受訪者在哪個細節表現出最強烈的同意或不同意，這會讓你的論文推論更扎實喔！這張表也完全符合系上要求的單行間距與三線表格式。`;
         }
 
         // === 2. 各構面平均數與標準差 ===
