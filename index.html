@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大衛林老師的學術統計分析助理</title>
+    
+    <!-- 引入 Tailwind CSS 進行現代化 UI 設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 Math.js 用於處理複雜的矩陣運算 (特別是多元迴歸分析) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+
+    <!-- 引入 jStat 用於計算 p-value (t分配, F分配等) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+    
+    <!-- 引入 FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* 系統 UI 基本字體 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* 
+         * 嚴格遵守南開科大長照所與 APA 7th 規範的論文表格樣式
+         * 1. 中文標楷體 (DFKai-sb / BiauKai)
+         * 2. 英文 Times New Roman
+         * 3. 內部單行間距
+         * 4. 三線表設計
+         */
+        .academic-paper-mode {
+            font-family: 'Times New Roman', 'DFKai-sb', 'BiauKai', serif;
+            background-color: white;
+            padding: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        
+        .academic-table-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14pt;
+        }
+
+        .academic-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0 auto;
+            text-align: center;
+            font-size: 12pt;
+            line-height: 1.0; /* 表格內單行間距 (南開規範) */
+        }
+
+        /* 三線表設計 */
+        .academic-table th {
+            border-top: 2px solid black;
+            border-bottom: 1px solid black;
+            padding: 8px;
+        }
+
+        .academic-table td {
+            padding: 8px;
+            border: none;
+        }
+
+        .academic-table tr:last-child td {
+            border-bottom: 2px solid black;
+        }
+
+        /* 老師的指導對話框 */
+        .prof-guidance {
+            background: linear-gradient(to right, #e0f2fe, #f0f9ff);
+            border-left: 4px solid #0284c7;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        /* 隱藏預設捲軸，自訂捲軸樣式 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- 左側導覽列 -->
+    <aside class="w-full md:w-64 bg-slate-800 text-white flex flex-col h-auto md:h-full shrink-0">
+        <div class="p-4 bg-slate-900 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-xl font-bold border-2 border-white">
+                林
+            </div>
+            <div>
+                <h1 class="text-lg font-bold">學術統計助理</h1>
+                <p class="text-xs text-slate-400">大衛林老師 指導</p>
+            </div>
+        </div>
+        
+        <div class="p-4 flex-1 overflow-y-auto">
+            <p class="text-xs text-slate-400 mb-2 uppercase tracking-wider">資料準備</p>
+            <button onclick="switchTab('data-input')" id="nav-data-input" class="w-full text-left px-4 py-2 mb-1 rounded bg-blue-600 text-white transition-colors"><i class="fa-solid fa-table w-6"></i> 載入資料 (Google Sheets)</button>
+            
+            <p class="text-xs text-slate-400 mt-6 mb-2 uppercase tracking-wider">統計分析法</p>
+            <button onclick="setupAnalysis('descriptive')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-users w-6"></i> 敘述性統計 (樣本分析)</button>
+            <button onclick="setupAnalysis('means')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-chart-simple w-6"></i> 各構面平均數與標準差</button>
+            <button onclick="setupAnalysis('ttest')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-not-equal w-6"></i> 獨立樣本 t 檢定</button>
+            <button onclick="setupAnalysis('anova')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-chart-column w-6"></i> 單因子變異數分析 (ANOVA)</button>
+            <button onclick="setupAnalysis('correlation')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-link w-6"></i> Pearson 相關性分析</button>
+            <button onclick="setupAnalysis('regression')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-chart-line w-6"></i> 多元迴歸分析</button>
+        </div>
+    </aside>
+
+    <!-- 主要內容區 -->
+    <main class="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
+        
+        <!-- 頂部資訊列 -->
+        <header class="bg-white border-b px-6 py-4 flex justify-between items-center shadow-sm z-10 shrink-0">
+            <h2 id="current-module-title" class="text-xl font-bold text-slate-800">資料輸入與前處理</h2>
+            <div class="flex gap-2">
+                <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium border border-green-200">
+                    <i class="fa-solid fa-check-circle mr-1"></i> APA 7th 格式就緒
+                </span>
+            </div>
+        </header>
+
+        <!-- 滾動內容區 -->
+        <div class="flex-1 overflow-y-auto p-6">
+            
+            <!-- 視窗 1: 資料輸入 -->
+            <div id="view-data-input" class="block max-w-4xl mx-auto">
+                <div class="bg-white rounded-xl shadow-sm border p-6 mb-6">
+                    <h3 class="text-lg font-bold mb-2"><i class="fa-brands fa-google mr-2 text-green-600"></i>匯入 Google 試算表資料</h3>
+                    <p class="text-sm text-slate-600 mb-4">
+                        請在你的 Google 試算表中，將包含「標題列」的所有數據範圍選取並按下 <code>Ctrl+C</code>，然後在下方文字框中貼上 (<code>Ctrl+V</code>)。
+                    </p>
+                    <textarea id="data-textarea" class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm mb-4 bg-slate-50 placeholder-slate-400" placeholder="範例：&#10;性別&#9;教育程度&#9;科技焦慮&#9;知覺易用性&#9;使用意願&#10;男&#9;大學以上&#9;2.5&#9;4.2&#9;4.5&#10;女&#9;高中職&#9;3.8&#9;3.1&#9;3.5..."></textarea>
+                    
+                    <div class="flex justify-between items-center">
+                        <button onclick="loadSampleData()" class="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors">
+                            <i class="fa-solid fa-lightbulb mr-1"></i> 載入「長者智慧輔具」範例資料
+                        </button>
+                        <button onclick="parseAndSaveData()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm transition-colors">
+                            解析並儲存資料 <i class="fa-solid fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="data-summary" class="hidden bg-green-50 border border-green-200 rounded-xl p-6">
+                    <h4 class="text-green-800 font-bold mb-2"><i class="fa-solid fa-circle-check mr-2"></i>資料解析成功</h4>
+                    <p id="data-stats-text" class="text-green-700 mb-4">成功讀取 X 筆樣本，包含 Y 個變數。</p>
+                    <div class="flex flex-wrap gap-2" id="variable-tags">
+                        <!-- 變數標籤將生成於此 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 視窗 2: 分析設定與結果 -->
+            <div id="view-analysis" class="hidden max-w-5xl mx-auto flex flex-col lg:flex-row gap-6">
+                
+                <!-- 左側：設定控制面板 -->
+                <div class="w-full lg:w-1/3 shrink-0">
+                    <div class="bg-white rounded-xl shadow-sm border p-5 sticky top-0">
+                        <h3 class="text-lg font-bold mb-4 border-b pb-2" id="analysis-settings-title">分析設定</h3>
+                        
+                        <div id="settings-container" class="space-y-4">
+                            <!-- JS 動態生成設定選項 (自變項、依變項下拉選單等) -->
+                        </div>
+
+                        <button onclick="executeAnalysis()" class="w-full mt-6 bg-slate-800 hover:bg-slate-900 text-white px-4 py-3 rounded-lg font-bold shadow-sm transition-colors">
+                            <i class="fa-solid fa-play mr-2"></i> 執行分析
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 右側：結果與老師回饋 -->
+                <div class="w-full lg:w-2/3 flex flex-col gap-6">
+                    
+                    <!-- 老師的叮嚀 (動態生成) -->
+                    <div id="prof-feedback" class="hidden prof-guidance p-5 shadow-sm">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xl font-bold shrink-0">
+                                👨‍🏫
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 mb-1">大衛林老師的學術叮嚀</h4>
+                                <p id="prof-feedback-text" class="text-slate-700 text-sm leading-relaxed">
+                                    <!-- 回饋文字 -->
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 論文標準格式輸出區 -->
+                    <div id="results-container" class="hidden">
+                        <div class="bg-yellow-50 text-yellow-800 text-xs px-3 py-2 rounded-t-lg border-x border-t border-yellow-200 flex items-center">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> 
+                            提醒：下方表格已套用南開科大福祉所格式（三線表、內文單行間距、表標題置中）。請直接截圖或複製貼上至 Word 中使用。
+                        </div>
+                        <div class="academic-paper-mode rounded-b-lg border-x border-b border-gray-200" id="academic-output">
+                            <!-- 論文格式表格與文字將生成於此 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- 自訂 Modal 訊息框 (取代 alert) -->
+    <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 transform transition-all">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                    <i class="fa-solid fa-triangle-exclamation text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">提示</h3>
+                <div class="mt-2">
+                    <p class="text-sm text-gray-500" id="modal-message">訊息內容</p>
+                </div>
+            </div>
+            <div class="mt-5 sm:mt-6">
+                <button onclick="closeModal()" type="button" class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:text-sm">
+                    我知道了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 應用程式狀態管理 ---
+        let rawData = []; // 原始陣列資料 (物件陣列)
+        let variables = []; // 變數名稱清單
+        let currentAnalysisType = ''; // 當前選擇的分析方法
+
+        // --- 輔助工具函式 ---
+        function showModal(title, message) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        function switchTab(tabId) {
+            document.getElementById('view-data-input').style.display = tabId === 'data-input' ? 'block' : 'none';
+            document.getElementById('view-analysis').style.display = tabId === 'analysis' ? 'flex' : 'none';
+            
+            // 更新導覽列樣式
+            const navItems = document.querySelectorAll('aside button');
+            navItems.forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('hover:bg-slate-700', 'text-slate-300');
+            });
+            if (tabId === 'data-input') {
+                document.getElementById('nav-data-input').classList.add('bg-blue-600', 'text-white');
+                document.getElementById('nav-data-input').classList.remove('hover:bg-slate-700', 'text-slate-300');
+                document.getElementById('current-module-title').innerText = '資料輸入與前處理';
+            }
+        }
+
+        // --- 載入範例資料 ---
+        function loadSampleData() {
+            const sample = `性別\t教育程度\t科技焦慮\t知覺易用性\t主觀規範\t使用意願
+男\t國中以下\t4.5\t2.1\t3.0\t2.5
+女\t高中職\t3.8\t3.2\t4.0\t3.8
+男\t大學以上\t2.1\t4.5\t4.2\t4.8
+女\t大學以上\t2.5\t4.2\t4.5\t4.6
+男\t高中職\t3.5\t3.5\t3.5\t3.7
+女\t國中以下\t4.8\t1.8\t2.5\t2.0
+男\t大學以上\t1.8\t4.8\t4.8\t5.0
+女\t高中職\t3.2\t3.8\t4.1\t4.0
+男\t國中以下\t4.2\t2.5\t3.2\t2.8
+女\t大學以上\t2.0\t4.6\t4.5\t4.9
+男\t高中職\t3.0\t3.9\t3.8\t4.1
+女\t國中以下\t4.6\t2.0\t2.8\t2.2
+男\t大學以上\t1.5\t4.9\t4.7\t5.0
+女\t高中職\t3.4\t3.6\t3.9\t3.9
+男\t國中以下\t4.0\t2.8\t3.5\t3.1
+女\t大學以上\t2.2\t4.4\t4.6\t4.7`;
+            document.getElementById('data-textarea').value = sample;
+        }
+
+        // --- 解析文本資料 (支援 Tab 或逗號分隔) ---
+        function parseAndSaveData() {
+            const text = document.getElementById('data-textarea').value.trim();
+            if (!text) {
+                showModal('錯誤', '請先貼上資料或載入範例資料！');
+                return;
+            }
+
+            const lines = text.split('\n');
+            if (lines.length < 2) {
+                showModal('錯誤', '資料至少需要包含一行標題列與一行數據！');
+                return;
+            }
+
+            // 判斷分隔符號 (Tab 或 逗號)
+            const separator = lines[0].includes('\t') ? '\t' : ',';
+            variables = lines[0].split(separator).map(v => v.trim());
+            
+            rawData = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(separator);
+                if (values.length !== variables.length) continue; // 忽略欄數不符的行
+                
+                let rowObj = {};
+                variables.forEach((variable, index) => {
+                    let val = values[index].trim();
+                    // 嘗試轉換為數字，若為 NaN 則保留原字串 (類別變項)
+                    let numVal = parseFloat(val);
+                    rowObj[variable] = isNaN(numVal) ? val : numVal;
+                });
+                rawData.push(rowObj);
+            }
+
+            if (rawData.length === 0) {
+                showModal('錯誤', '無法解析資料，請確認格式是否正確。');
+                return;
+            }
+
+            // 更新 UI
+            document.getElementById('data-summary').classList.remove('hidden');
+            document.getElementById('data-stats-text').innerText = `成功讀取 ${rawData.length} 筆有效樣本，包含 ${variables.length} 個研究變項。`;
+            
+            const tagsContainer = document.getElementById('variable-tags');
+            tagsContainer.innerHTML = '';
+            variables.forEach(v => {
+                tagsContainer.innerHTML += `<span class="px-2 py-1 bg-white rounded border border-green-300 text-green-700 text-xs font-bold">${v}</span>`;
+            });
+        }
+
+        // --- 設定分析畫面與下拉選單 ---
+        function setupAnalysis(type) {
+            if (rawData.length === 0) {
+                showModal('尚未載入資料', '請先在「資料準備」階段貼上並解析資料！');
+                return;
+            }
+            
+            currentAnalysisType = type;
+            switchTab('analysis');
+            document.getElementById('results-container').classList.add('hidden');
+            document.getElementById('prof-feedback').classList.add('hidden');
+
+            const titleMap = {
+                'descriptive': '敘述性統計 (樣本特性)',
+                'means': '各構面平均數與標準差',
+                'ttest': '獨立樣本 t 檢定',
+                'anova': '單因子變異數分析 (ANOVA)',
+                'correlation': 'Pearson 相關性分析',
+                'regression': '多元迴歸分析'
+            };
+            
+            document.getElementById('current-module-title').innerText = titleMap[type];
+            document.getElementById('analysis-settings-title').innerText = titleMap[type] + ' 設定';
+            
+            // 標示側邊欄
+            const navItems = document.querySelectorAll('aside button');
+            navItems.forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('hover:bg-slate-700', 'text-slate-300');
+            });
+            event.currentTarget.classList.add('bg-blue-600', 'text-white');
+            event.currentTarget.classList.remove('hover:bg-slate-700', 'text-slate-300');
+
+            const container = document.getElementById('settings-container');
+            container.innerHTML = ''; // 清空
+
+            // 產生下拉選單 HTML 的輔助函式
+            const genSelect = (id, label, multiple = false) => {
+                let options = variables.map(v => `<option value="${v}">${v}</option>`).join('');
+                return `
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">${label}</label>
+                        <select id="${id}" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-slate-50" ${multiple ? 'multiple size="5"' : ''}>
+                            ${options}
+                        </select>
+                        ${multiple ? '<p class="text-xs text-slate-500 mt-1">按住 Ctrl (或 Cmd) 可複選</p>' : ''}
+                    </div>
+                `;
+            };
+
+            // 根據分析類型生成不同控制項
+            switch(type) {
+                case 'descriptive':
+                    container.innerHTML = genSelect('var-cat', '請選擇要分析的人口學變項 (類別)', true);
+                    break;
+                case 'means':
+                    container.innerHTML = genSelect('var-cont', '請選擇要計算的連續變項 (構面)', true);
+                    break;
+                case 'ttest':
+                    container.innerHTML = genSelect('var-indep', '分組變項 (自變項，如：性別)');
+                    container.innerHTML += genSelect('var-dep', '檢定變項 (依變項，連續數值)');
+                    break;
+                case 'anova':
+                    container.innerHTML = genSelect('var-indep', '因子變項 (自變項，>3個類別，如：教育程度)');
+                    container.innerHTML += genSelect('var-dep', '依變項 (連續數值)');
+                    break;
+                case 'correlation':
+                    container.innerHTML = genSelect('var-cont', '請選擇要進行相關分析的變項 (至少選2個)', true);
+                    break;
+                case 'regression':
+                    container.innerHTML = genSelect('var-dep', '依變項 (要預測的目標 Y)');
+                    container.innerHTML += genSelect('var-indep', '自變項群 (預測變數 X)', true);
+                    break;
+            }
+        }
+
+        // --- 執行分析路由 ---
+        function executeAnalysis() {
+            const out = document.getElementById('academic-output');
+            out.innerHTML = '';
+            
+            try {
+                switch(currentAnalysisType) {
+                    case 'descriptive': runDescriptive(); break;
+                    case 'means': runMeans(); break;
+                    case 'ttest': runTtest(); break;
+                    case 'anova': runAnova(); break;
+                    case 'correlation': runCorrelation(); break;
+                    case 'regression': runRegression(); break;
+                }
+                
+                document.getElementById('results-container').classList.remove('hidden');
+                document.getElementById('prof-feedback').classList.remove('hidden');
+                
+            } catch (error) {
+                showModal('分析錯誤', '資料格式不符或運算過程發生錯誤，請確認選擇的變項屬性是否正確（例如將文字類別變數當作連續變數運算）。\n\n錯誤細節: ' + error.message);
+                console.error(error);
+            }
+        }
+
+        // --- 提取選中變數的輔助函式 ---
+        function getSelected(id) {
+            const el = document.getElementById(id);
+            if (!el) return [];
+            return Array.from(el.selectedOptions).map(opt => opt.value);
+        }
+
+        // === 1. 敘述統計 ===
+        function runDescriptive() {
+            const vars = getSelected('var-cat');
+            if (vars.length === 0) throw new Error("請至少選擇一個變項。");
+
+            let html = '';
+            let profText = `同學，這份敘述統計表格已經符合我們南開福祉所要求的「三線表」格式。從表格中，你可以很清楚地看見樣本的分布狀況。在撰寫第四章「樣本結構分析」時，記得要把佔比最高的族群點出來，說明這樣的樣本組成對你的研究推論有什麼代表性意義。`;
+
+            let tableNum = 1;
+            vars.forEach(v => {
+                let counts = {};
+                rawData.forEach(row => {
+                    let val = row[v];
+                    counts[val] = (counts[val] || 0) + 1;
+                });
+                
+                const total = rawData.length;
+                let rowsHtml = '';
+                for (const [key, count] of Object.entries(counts)) {
+                    const percent = ((count / total) * 100).toFixed(1);
+                    rowsHtml += `<tr><td>${key}</td><td>${count}</td><td>${percent}%</td></tr>`;
+                }
+
+                html += `
+                    <div class="academic-table-title">表4.${tableNum} 受訪者「${v}」特徵資料統計表 (n=${total})</div>
+                    <table class="academic-table mb-8">
+                        <thead>
+                            <tr>
+                                <th>組別</th>
+                                <th>次數 (分配)</th>
+                                <th>百分比 (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                            <tr>
+                                <td><strong>總計</strong></td>
+                                <td><strong>${total}</strong></td>
+                                <td><strong>100.0%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                tableNum++;
+            });
+
+            document.getElementById('academic-output').innerHTML = html;
+            document.getElementById('prof-feedback-text').innerText = profText;
+        }
+
+        // === 2. 各構面平均數與標準差 ===
+        function runMeans() {
+            const vars = getSelected('var-cont');
+            if (vars.length === 0) throw new Error("請至少選擇一個變項。");
+
+            let rowsHtml = '';
+            vars.forEach(v => {
+                let sum = 0;
+                let values = [];
+                rawData.forEach(row => {
+                    if (typeof row[v] === 'number') {
+                        sum += row[v];
+                        values.push(row[v]);
+                    }
+                });
+                const n = values.length;
+                if(n === 0) return;
+                
+                const mean = sum / n;
+                const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (n - 1);
+                const sd = Math.sqrt(variance);
+
+                rowsHtml += `<tr>
+                    <td style="text-align: left;">${v}</td>
+                    <td>${mean.toFixed(2)}</td>
+                    <td>${sd.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            const html = `
+                <div class="academic-table-title">表4.X 各研究構面之現況分析表</div>
+                <table class="academic-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">研究構面</th>
+                            <th>平均數 (M)</th>
+                            <th>標準差 (SD)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('academic-output').innerHTML = html;
+            document.getElementById('prof-feedback-text').innerText = `很好！在整理各構面平均數時，我們通常可以判斷受訪者對該構面的「同意程度」。如果採用李克特五點量表，平均數大於3表示偏向同意。在寫作時，記得挑出得分最高與最低的構面進行討論，這往往是文獻探討中可以發揮的地方。`;
+        }
+
+        // === 3. 獨立樣本 t 檢定 ===
+        function runTtest() {
+            const indepVar = getSelected('var-indep')[0];
+            const depVar = getSelected('var-dep')[0];
+            
+            // 分組
+            let groups = {};
+            rawData.forEach(row => {
+                let g = row[indepVar];
+                let val = row[depVar];
+                if (typeof val === 'number') {
+                    if(!groups[g]) groups[g] = [];
+                    groups[g].push(val);
+                }
+            });
+
+            const keys = Object.keys(groups);
+            if (keys.length !== 2) {
+                throw new Error(`獨立樣本 t 檢定要求自變項必須剛好有 2 個類別，但「${indepVar}」有 ${keys.length} 個類別。若大於 2 個請改用 ANOVA。`);
+            }
+
+            const g1 = groups[keys[0]];
+            const g2 = groups[keys[1]];
+            
+            const calcStats = (arr) => {
+                const n = arr.length;
+                const mean = arr.reduce((a,b)=>a+b,0)/n;
+                const varc = arr.reduce((a,b)=>a+Math.pow(b-mean,2),0)/(n-1);
+                return {n, mean, varc, sd: Math.sqrt(varc)};
+            };
+
+            const s1 = calcStats(g1);
+            const s2 = calcStats(g2);
+
+            // T-test 假設變異數同質 (為求前端演示順暢，採用 pooled variance)
+            const df = s1.n + s2.n - 2;
+            const sp2 = ((s1.n - 1)*s1.varc + (s2.n - 1)*s2.varc) / df;
+            const t = (s1.mean - s2.mean) / Math.sqrt(sp2 * (1/s1.n + 1/s2.n));
+            
+            // 使用 jStat 計算雙尾 p 值
+            const p = jStat.studentt.pdf(Math.abs(t), df) * 2; // approximation or better use cdf
+            const pValue = 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
+
+            const formatP = (pVal) => {
+                if (pVal < 0.001) return '.000***';
+                if (pVal < 0.01) return pVal.toFixed(3).substring(1) + '**';
+                if (pVal < 0.05) return pVal.toFixed(3).substring(1) + '*';
+                return pVal.toFixed(3).substring(1);
+            };
+
+            const html = `
+                <div class="academic-table-title">表4.X 不同「${indepVar}」在「${depVar}」之獨立樣本 t 檢定分析表</div>
+                <table class="academic-table">
+                    <thead>
+                        <tr>
+                            <th>變項</th>
+                            <th>組別</th>
+                            <th>人數 (n)</th>
+                            <th>平均數 (M)</th>
+                            <th>標準差 (SD)</th>
+                            <th>t 值</th>
+                            <th>p 值 (顯著性)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td rowspan="2">${depVar}</td>
+                            <td>${keys[0]}</td>
+                            <td>${s1.n}</td>
+                            <td>${s1.mean.toFixed(2)}</td>
+                            <td>${s1.sd.toFixed(2)}</td>
+                            <td rowspan="2">${t.toFixed(3)}</td>
+                            <td rowspan="2">${formatP(pValue)}</td>
+                        </tr>
+                        <tr>
+                            <td>${keys[1]}</td>
+                            <td>${s2.n}</td>
+                            <td>${s2.mean.toFixed(2)}</td>
+                            <td>${s2.sd.toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="text-align: left; font-size: 10pt; margin-top: 5px;">註：* p < .05, ** p < .01, *** p < .001。</div>
+            `;
+            
+            document.getElementById('academic-output').innerHTML = html;
+            
+            let sigText = pValue < 0.05 ? `有達到統計上的顯著差異 (p < .05)` : `沒有達到統計上的顯著水準 (p > .05)`;
+            document.getElementById('prof-feedback-text').innerText = `在這份獨立樣本 t 檢定中，我們看到兩組平均數分別是 ${s1.mean.toFixed(2)} 與 ${s2.mean.toFixed(2)}。檢定結果顯示差異${sigText}。老師提醒你，在論文撰寫時，除了報告數據，更要根據文獻探討來解釋「為什麼」會有或沒有這樣的差異，這才是學術論證的核心。`;
+        }
+
+        // === 4. 單因子變異數分析 (ANOVA) ===
+        function runAnova() {
+            const indepVar = getSelected('var-indep')[0];
+            const depVar = getSelected('var-dep')[0];
+            
+            let groups = {};
+            let allValues = [];
+            rawData.forEach(row => {
+                let g = row[indepVar];
+                let val = row[depVar];
+                if (typeof val === 'number') {
+                    if(!groups[g]) groups[g] = [];
+                    groups[g].push(val);
+                    allValues.push(val);
+                }
+            });
+
+            const keys = Object.keys(groups);
+            if (keys.length < 3) {
+                throw new Error(`ANOVA 適用於比較 3 個或以上的組別，但「${indepVar}」只有 ${keys.length} 個類別。請改用獨立樣本 t 檢定。`);
+            }
+
+            const totalN = allValues.length;
+            const grandMean = allValues.reduce((a,b)=>a+b,0) / totalN;
+
+            let SS_between = 0;
+            let SS_within = 0;
+
+            let rowsHtml = '';
+
+            keys.forEach(k => {
+                const arr = groups[k];
+                const n = arr.length;
+                const mean = arr.reduce((a,b)=>a+b,0) / n;
+                const varc = arr.reduce((a,b)=>a+Math.pow(b-mean,2),0) / (n > 1 ? n-1 : 1);
+                
+                SS_between += n * Math.pow(mean - grandMean, 2);
+                arr.forEach(v => {
+                    SS_within += Math.pow(v - mean, 2);
+                });
+
+                rowsHtml += `
+                    <tr>
+                        <td>${k}</td>
+                        <td>${n}</td>
+                        <td>${mean.toFixed(2)}</td>
+                        <td>${Math.sqrt(varc).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            const df_between = keys.length - 1;
+            const df_within = totalN - keys.length;
+            
+            const MS_between = SS_between / df_between;
+            const MS_within = SS_within / df_within;
+            const F = MS_between / MS_within;
+            
+            // Calculate p-value using jStat
+            const pValue = 1 - jStat.centralF.cdf(F, df_between, df_within);
+
+            const formatP = (pVal) => {
+                if (pVal < 0.001) return '.000***';
+                if (pVal < 0.01) return pVal.toFixed(3).substring(1) + '**';
+                if (pVal < 0.05) return pVal.toFixed(3).substring(1) + '*';
+                return pVal.toFixed(3).substring(1);
+            };
+
+            const html = `
+                <div class="academic-table-title">表4.X 不同「${indepVar}」在「${depVar}」之變異數分析摘要表</div>
+                <table class="academic-table mb-4">
+                    <thead>
+                        <tr>
+                            <th>組別</th>
+                            <th>人數 (n)</th>
+                            <th>平均數 (M)</th>
+                            <th>標準差 (SD)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                        <tr>
+                            <td><strong>全體</strong></td>
+                            <td><strong>${totalN}</strong></td>
+                            <td><strong>${grandMean.toFixed(2)}</strong></td>
+                            <td><strong>-</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <table class="academic-table">
+                    <thead>
+                        <tr>
+                            <th>變異來源</th>
+                            <th>SS (平方和)</th>
+                            <th>df (自由度)</th>
+                            <th>MS (均方)</th>
+                            <th>F 值</th>
+                            <th>p 值</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>組間 (Between)</td>
+                            <td>${SS_between.toFixed(2)}</td>
+                            <td>${df_between}</td>
+                            <td>${MS_between.toFixed(2)}</td>
+                            <td>${F.toFixed(3)}</td>
+                            <td>${formatP(pValue)}</td>
+                        </tr>
+                        <tr>
+                            <td>組內 (Within)</td>
+                            <td>${SS_within.toFixed(2)}</td>
+                            <td>${df_within}</td>
+                            <td>${MS_within.toFixed(2)}</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="text-align: left; font-size: 10pt; margin-top: 5px;">註：* p < .05, ** p < .01, *** p < .001。</div>
+            `;
+            
+            document.getElementById('academic-output').innerHTML = html;
+            
+            let sigText = pValue < 0.05 ? `有顯著差異，接下來你需要進一步做「事後檢定 (Post-hoc test)」來確認到底是哪兩組之間有差異（例如是高中職跟大學以上有差，還是國中跟大學以上有差）。` : `未達顯著差異，這代表不同類別的受訪者在此變項上的表現是一致的。`;
+            document.getElementById('prof-feedback-text').innerText = `ANOVA 的 F 值為 ${F.toFixed(2)}，檢定結果顯示${sigText} 在解釋時，記得結合你的研究目的來探討為何產生這樣的結果。`;
+        }
+
+        // === 5. 相關性分析 (Pearson Correlation Matrix) ===
+        function runCorrelation() {
+            const vars = getSelected('var-cont');
+            if (vars.length < 2) throw new Error("相關分析至少需要選擇 2 個變項。");
+
+            // Pearson r formula
+            const calcR = (xArr, yArr) => {
+                const n = xArr.length;
+                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+                for(let i=0; i<n; i++) {
+                    sumX += xArr[i]; sumY += yArr[i];
+                    sumXY += xArr[i]*yArr[i];
+                    sumX2 += xArr[i]*xArr[i]; sumY2 += yArr[i]*yArr[i];
+                }
+                const num = (n * sumXY) - (sumX * sumY);
+                const den = Math.sqrt((n * sumX2 - sumX*sumX) * (n * sumY2 - sumY*sumY));
+                return den === 0 ? 0 : num / den;
+            };
+
+            // Calculate p-value for correlation
+            const calcP = (r, n) => {
+                if (Math.abs(r) === 1) return 0;
+                const t = r * Math.sqrt((n - 2) / (1 - r*r));
+                return 2 * (1 - jStat.studentt.cdf(Math.abs(t), n - 2));
+            };
+
+            let headersHtml = '<th>變數名稱</th>';
+            for(let i=0; i<vars.length; i++) {
+                headersHtml += `<th>(${i+1})</th>`;
+            }
+
+            let rowsHtml = '';
+            for(let i=0; i<vars.length; i++) {
+                rowsHtml += `<tr><td style="text-align:left;">(${i+1}) ${vars[i]}</td>`;
+                for(let j=0; j<vars.length; j++) {
+                    if (i === j) {
+                        rowsHtml += `<td>1</td>`;
+                    } else if (j > i) {
+                        rowsHtml += `<td>-</td>`; // Only show lower triangle
+                    } else {
+                        // Get data arrays
+                        let x = [], y = [];
+                        rawData.forEach(row => {
+                            if(typeof row[vars[i]] === 'number' && typeof row[vars[j]] === 'number') {
+                                x.push(row[vars[i]]);
+                                y.push(row[vars[j]]);
+                            }
+                        });
+                        const r = calcR(x, y);
+                        const p = calcP(r, x.length);
+                        
+                        let stars = '';
+                        if (p < 0.001) stars = '***';
+                        else if (p < 0.01) stars = '**';
+                        else if (p < 0.05) stars = '*';
+
+                        rowsHtml += `<td>${r.toFixed(3).replace(/^(-?)0\./, '$1.')}${stars}</td>`;
+                    }
+                }
+                rowsHtml += `</tr>`;
+            }
+
+            const html = `
+                <div class="academic-table-title">表4.X 各研究變項之 Pearson 相關分析矩陣</div>
+                <table class="academic-table">
+                    <thead>
+                        <tr>
+                            ${headersHtml}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+                <div style="text-align: left; font-size: 10pt; margin-top: 5px;">註：* p < .05, ** p < .01, *** p < .001。<br>表格呈現下三角矩陣 (Lower triangular matrix)。</div>
+            `;
+            
+            document.getElementById('academic-output').innerHTML = html;
+            document.getElementById('prof-feedback-text').innerText = `同學，這張相關矩陣表我幫你排成了學術界最愛用的「下三角矩陣」，可以避免資訊重複。你要特別注意有標示星星 (**) 的係數，並觀察其正負號。例如正相關代表兩者同時增加，這對於我們後續建立迴歸模型非常重要。如果自變項之間相關係數高於 0.7，未來跑迴歸時要注意「共線性(Collinearity)」問題喔！`;
+        }
+
+        // === 6. 多元迴歸分析 (Multiple Linear Regression) ===
+        function runRegression() {
+            const depVar = getSelected('var-dep')[0];
+            const indepVars = getSelected('var-indep');
+            
+            if (!depVar) throw new Error("請選擇一個依變項。");
+            if (indepVars.length === 0) throw new Error("請至少選擇一個自變項。");
+
+            // Prepare Data Matrices
+            let Y = [];
+            let X = []; // Design matrix (with intercept)
+            
+            rawData.forEach(row => {
+                let validRow = true;
+                if (typeof row[depVar] !== 'number') validRow = false;
+                indepVars.forEach(v => {
+                    if (typeof row[v] !== 'number') validRow = false;
+                });
+
+                if(validRow) {
+                    Y.push([row[depVar]]);
+                    let xRow = [1]; // Intercept
+                    indepVars.forEach(v => xRow.push(row[v]));
+                    X.push(xRow);
+                }
+            });
+
+            const n = Y.length;
+            const k = indepVars.length; // Number of predictors
+            
+            if (n <= k + 1) throw new Error("有效樣本數不足以執行此多元迴歸分析。");
+
+            // Math.js Matrix Operations for OLS: B = (X'X)^-1 X'Y
+            const mathX = math.matrix(X);
+            const mathY = math.matrix(Y);
+            const X_T = math.transpose(mathX);
+            const X_T_X = math.multiply(X_T, mathX);
+            const X_T_X_inv = math.inv(X_T_X);
+            const X_T_Y = math.multiply(X_T, mathY);
+            const B = math.multiply(X_T_X_inv, X_T_Y).valueOf();
+
+            // Calculate R-squared and Statistics
+            let yMean = math.mean(mathY);
+            let yPred = math.multiply(mathX, B).valueOf();
+            
+            let SS_tot = 0;
+            let SS_res = 0;
+            let SS_reg = 0;
+            for(let i=0; i<n; i++) {
+                SS_tot += Math.pow(Y[i][0] - yMean, 2);
+                SS_res += Math.pow(Y[i][0] - yPred[i][0], 2);
+                SS_reg += Math.pow(yPred[i][0] - yMean, 2);
+            }
+            
+            const R2 = SS_reg / SS_tot;
+            const adjR2 = 1 - ((1 - R2) * (n - 1) / (n - k - 1));
+            
+            const df_reg = k;
+            const df_res = n - k - 1;
+            const MS_reg = SS_reg / df_reg;
+            const MS_res = SS_res / df_res;
+            const F = MS_reg / MS_res;
+            
+            const pModel = 1 - jStat.centralF.cdf(F, df_reg, df_res);
+
+            // Calculate Standard Errors of Coefficients
+            // Var(B) = MS_res * (X'X)^-1
+            const var_B = math.multiply(X_T_X_inv, MS_res).valueOf();
+            const SE_B = [];
+            for(let i=0; i<k+1; i++) {
+                SE_B.push(Math.sqrt(var_B[i][i]));
+            }
+
+            // Beta (Standardized coefficients)
+            // Beta_i = B_i * (SD_xi / SD_y)
+            let sd_Y = Math.sqrt(SS_tot / (n-1));
+            let Betas = [0]; // Intercept beta is 0
+            for(let i=1; i<=k; i++) {
+                let xVals = X.map(r => r[i]);
+                let xMean = math.mean(xVals);
+                let ss_x = xVals.reduce((acc, val) => acc + Math.pow(val - xMean, 2), 0);
+                let sd_X = Math.sqrt(ss_x / (n-1));
+                Betas.push(B[i][0] * (sd_X / sd_Y));
+            }
+
+            const formatP = (pVal) => {
+                if (pVal < 0.001) return '.000***';
+                if (pVal < 0.01) return pVal.toFixed(3).substring(1) + '**';
+                if (pVal < 0.05) return pVal.toFixed(3).substring(1) + '*';
+                return pVal.toFixed(3).substring(1);
+            };
+
+            let rowsHtml = '';
+            for(let i=1; i<=k; i++) {
+                let b_val = B[i][0];
+                let se_val = SE_B[i];
+                let beta_val = Betas[i];
+                let t_val = b_val / se_val;
+                let p_val = 2 * (1 - jStat.studentt.cdf(Math.abs(t_val), df_res));
+                
+                rowsHtml += `
+                    <tr>
+                        <td style="text-align:left;">${indepVars[i-1]}</td>
+                        <td>${b_val.toFixed(3)}</td>
+                        <td>${se_val.toFixed(3)}</td>
+                        <td>${beta_val.toFixed(3)}</td>
+                        <td>${t_val.toFixed(3)}</td>
+                        <td>${formatP(p_val)}</td>
+                    </tr>
+                `;
+            }
+
+            // Reference to format matching "表9 迴歸分析摘要表" in the PDF
+            const html = `
+                <div class="academic-table-title">表4.X 「${depVar}」之多元迴歸分析摘要表</div>
+                <table class="academic-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">自變項</th>
+                            <th>B</th>
+                            <th>SE B</th>
+                            <th>β (標準化係數)</th>
+                            <th>t 值</th>
+                            <th>p 值</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+                <div style="text-align: left; font-size: 10pt; margin-top: 15px; border-top: 1px solid #ccc; padding-top: 5px;">
+                    模型摘要：R<sup>2</sup> = ${R2.toFixed(3)}, Adj R<sup>2</sup> = ${adjR2.toFixed(3)}, F = ${F.toFixed(3)}${formatP(pModel).replace(/[\d\.]/g, '')}, 樣本數 n = ${n}<br>
+                    註：依變項為「${depVar}」。* p < .05, ** p < .01, *** p < .001。
+                </div>
+            `;
+            
+            document.getElementById('academic-output').innerHTML = html;
+            
+            let betaInfo = [];
+            for(let i=1; i<=k; i++) {
+                let t_val = B[i][0] / SE_B[i];
+                let p_val = 2 * (1 - jStat.studentt.cdf(Math.abs(t_val), df_res));
+                if(p_val < 0.05) {
+                    betaInfo.push(indepVars[i-1]);
+                }
+            }
+            
+            let profText = `這份多元迴歸表格完全比照我們系上簡報要求的格式產出（包含 B, SE B, β 等欄位）。\n你的模型整體解釋力 (R²) 為 ${(R2*100).toFixed(1)}%。這代表你選的自變項可以解釋依變項 ${(R2*100).toFixed(1)}% 的變異。`;
+            
+            if (betaInfo.length > 0) {
+                profText += `\n另外，恭喜你！在控制其他變數後，發現「${betaInfo.join('、')}」對依變項具有顯著的預測力。在論文的第五章，你可以針對這幾點提出針對性的長照管理或輔具推廣實務建議！`;
+            } else {
+                profText += `\n不過，個別自變項均未達到顯著。這在研究上也是一種發現，代表可能樣本數不足，或是文獻中提到的影響力在這次的群體中未被驗證。我們下次 meeting 可以一起討論如何解釋。`;
+            }
+
+            document.getElementById('prof-feedback-text').innerText = profText;
+        }
+
+        // 初始化
+        switchTab('data-input');
+    </script>
+</body>
+</html>
