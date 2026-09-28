@@ -476,8 +476,28 @@
             container.innerHTML = ''; // 清空
 
             // 產生下拉選單 HTML 的輔助函式
-            const genSelect = (id, label, multiple = false) => {
-                let options = variables.map(v => `<option value="${v}">${v}</option>`).join('');
+            const genSelect = (id, label, multiple = false, filterType = 'all') => {
+                let filteredVars = variables;
+                
+                if (filterType === 'cat') {
+                    // 僅過濾出類別變項 (字串型態，即人口學變項)
+                    filteredVars = variables.filter(v => {
+                        let validVal = rawData.find(row => row[v] !== null && row[v] !== "");
+                        return validVal && typeof validVal[v] === 'string';
+                    });
+                } else if (filterType === 'cont') {
+                    // 僅過濾出連續變項 (數值型態，即李克特尺度與構面)
+                    filteredVars = variables.filter(v => {
+                        let validVal = rawData.find(row => row[v] !== null && row[v] !== "");
+                        return validVal && typeof validVal[v] === 'number';
+                    });
+                }
+
+                let options = filteredVars.map(v => `<option value="${v}">${v}</option>`).join('');
+                if (filteredVars.length === 0) {
+                    options = `<option disabled>無符合此屬性的變項，請確認資料格式</option>`;
+                }
+
                 return `
                     <div class="mb-4">
                         <label class="block text-sm font-bold text-slate-700 mb-1">${label}</label>
@@ -492,25 +512,25 @@
             // 根據分析類型生成不同控制項
             switch(type) {
                 case 'descriptive':
-                    container.innerHTML = genSelect('var-cat', '請選擇要分析的人口學變項 (類別)', true);
+                    container.innerHTML = genSelect('var-cat', '請選擇要分析的人口學變項 (僅顯示類別/次數分配)', true, 'cat');
                     break;
                 case 'means':
-                    container.innerHTML = genSelect('var-cont', '請選擇要計算的連續變項 (構面)', true);
+                    container.innerHTML = genSelect('var-cont', '請選擇要計算的連續變項 (僅顯示李克特尺度/構面)', true, 'cont');
                     break;
                 case 'ttest':
-                    container.innerHTML = genSelect('var-indep', '分組變項 (自變項，如：性別)');
-                    container.innerHTML += genSelect('var-dep', '檢定變項 (依變項，連續數值)');
+                    container.innerHTML = genSelect('var-indep', '分組變項 (自變項，如：性別)', false, 'cat');
+                    container.innerHTML += genSelect('var-dep', '檢定變項 (依變項，連續數值)', false, 'cont');
                     break;
                 case 'anova':
-                    container.innerHTML = genSelect('var-indep', '因子變項 (自變項，>3個類別，如：教育程度)');
-                    container.innerHTML += genSelect('var-dep', '依變項 (連續數值)');
+                    container.innerHTML = genSelect('var-indep', '因子變項 (自變項，>3個類別，如：教育程度)', false, 'cat');
+                    container.innerHTML += genSelect('var-dep', '依變項 (連續數值)', false, 'cont');
                     break;
                 case 'correlation':
-                    container.innerHTML = genSelect('var-cont', '請選擇要進行相關分析的變項 (至少選2個)', true);
+                    container.innerHTML = genSelect('var-cont', '請選擇要進行相關分析的變項 (至少選2個)', true, 'cont');
                     break;
                 case 'regression':
-                    container.innerHTML = genSelect('var-dep', '依變項 (要預測的目標 Y)');
-                    container.innerHTML += genSelect('var-indep', '自變項群 (預測變數 X)', true);
+                    container.innerHTML = genSelect('var-dep', '依變項 (要預測的目標 Y)', false, 'cont');
+                    container.innerHTML += genSelect('var-indep', '自變項群 (預測變數 X)', true, 'cont');
                     break;
             }
         }
