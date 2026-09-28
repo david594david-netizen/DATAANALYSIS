@@ -22,7 +22,7 @@
 
     <header class="bg-slate-800 text-white h-14 flex items-center px-6 shadow-md shrink-0 z-10">
         <i class="fa-solid fa-graduation-cap text-2xl mr-3 text-blue-400"></i>
-        <h1 class="text-lg font-bold tracking-wide">社會科學研究統計分析系統 <span class="text-xs font-normal text-slate-300 ml-2">符合南開科大福祉所 & APA 7th 規範 & 大衛林開發</span></h1>
+        <h1 class="text-lg font-bold tracking-wide">長照學術統計分析系統 <span class="text-xs font-normal text-slate-300 ml-2">符合南開福祉所 & APA 7th 規範</span></h1>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
@@ -34,6 +34,8 @@
                 <p class="text-xs text-slate-400 mt-6 mb-2 uppercase tracking-wider">統計分析法</p>
                 <button onclick="setupAnalysis('descriptive')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-users w-6"></i> 樣本分析(人口學)</button>
                 <button onclick="setupAnalysis('item_stats')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-list-ol w-6"></i> 各題項描述性統計</button>
+                <button onclick="setupAnalysis('discrimination')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-magnifying-glass-chart w-6"></i> 鑑別度分析</button>
+                <button onclick="setupAnalysis('reliability')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-shield-halved w-6"></i> 信度分析</button>
                 <button onclick="setupAnalysis('means')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-layer-group w-6"></i> 各構面平均數與標準差</button>
                 <button onclick="setupAnalysis('ttest')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-not-equal w-6"></i> 獨立樣本 t 檢定</button>
                 <button onclick="setupAnalysis('anova')" class="w-full text-left px-4 py-2 mb-1 rounded hover:bg-slate-700 text-slate-300 transition-colors"><i class="fa-solid fa-chart-column w-6"></i> 單因子變異數分析</button>
@@ -291,8 +293,24 @@
             } 
             else if (type === 'item_stats') {
                 titleEl.innerHTML = '<i class="fa-solid fa-list-ol text-blue-600 mr-2"></i>各題項描述性統計';
-                descEl.innerText = '計算單一題項之平均數與標準差，並自動由高至低排序。';
-                html = `<button onclick="executeAnalysis()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors">產出題項排序報表</button>`;
+                descEl.innerText = '依據研究構面，分別計算單一題項之平均數與標準差，並自動由高至低排序。';
+                html = `<button onclick="executeAnalysis()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors">產出各構面題項報表</button>`;
+            }
+            else if (type === 'discrimination') {
+                titleEl.innerHTML = '<i class="fa-solid fa-magnifying-glass-chart text-blue-600 mr-2"></i>鑑別度分析 (Item Discrimination)';
+                descEl.innerText = '計算各題項之決斷值(CR值)，比較高低分組(前、後27%)在各題項得分是否有顯著差異。';
+                html = `
+                    <div class="flex-1"><label class="block text-sm font-medium mb-1">選擇檢定構面</label><select id="dep-var" class="w-full border rounded p-2">${constructOptions}</select></div>
+                    <button onclick="executeAnalysis()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors">執行鑑別度分析</button>
+                `;
+            }
+            else if (type === 'reliability') {
+                titleEl.innerHTML = '<i class="fa-solid fa-shield-halved text-blue-600 mr-2"></i>信度分析 (Reliability Analysis)';
+                descEl.innerText = '計算構面之 Cronbach\\'s α 係數，檢驗問卷題項的內部一致性。';
+                html = `
+                    <div class="flex-1"><label class="block text-sm font-medium mb-1">選擇檢定構面</label><select id="dep-var" class="w-full border rounded p-2">${constructOptions}</select></div>
+                    <button onclick="executeAnalysis()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors">執行信度分析</button>
+                `;
             }
             else if (type === 'means') {
                 titleEl.innerHTML = '<i class="fa-solid fa-layer-group text-blue-600 mr-2"></i>各構面平均數與標準差';
@@ -363,6 +381,8 @@
                 switch(currentAnalysisType) {
                     case 'descriptive': runDescriptive(); break;
                     case 'item_stats': runItemStats(); break;
+                    case 'discrimination': runDiscrimination(); break;
+                    case 'reliability': runReliability(); break;
                     case 'means': runMeans(); break;
                     case 'ttest': runTtest(); break;
                     case 'anova': runAnova(); break;
@@ -443,326 +463,53 @@
             document.getElementById('prof-message').innerHTML = `同學，你的思考非常縝密！在論文第四章中，將所有題目混在一起看會失去焦點。我們現在「依據構面」分別產出題項排序表。得分最高的前三題，往往代表受訪者在該構面中最同意的觀點，這是你在第五章提出實務管理建議的最佳切入點。另外，輸出的表標題與內容皆已完美符合南開福祉所格式。`;
         }
 
-        function runMeans() {
-            if(constructVars.length === 0) throw new Error("尚未定義構面");
-            let tableIndex = reportHistory.length + 1;
-            let html = `<div class="table-title">表4.${tableIndex} 各構面描述性統計分析表</div>`;
-            html += `<table class="academic-table"><thead><tr><th>研究構面</th><th>平均數 (M)</th><th>標準差 (SD)</th></tr></thead><tbody>`;
-            
-            constructVars.forEach(v => {
-                const data = getNumData(v);
-                const mean = calcMean(data);
-                const std = calcStd(data, mean);
-                html += `<tr><td>${v}</td><td>${mean.toFixed(2)}</td><td>${std.toFixed(2)}</td></tr>`;
-            });
-            html += `</tbody></table>`;
-            
-            document.getElementById('academic-output').innerHTML = html;
-            document.getElementById('prof-message').innerHTML = `你看，這些都是你剛剛辛苦打包出來的「構面」。學術上我們不再看單一題目，而是看整體的心理變數。如果平均數超過 3.5（以五點量表為例），通常代表受訪者偏向同意這個構面所陳述的概念。`;
-        }
+        function runDiscrimination() {
+            const constructName = document.getElementById('dep-var').value;
+            if(!constructName) throw new Error("請選擇檢定構面");
+            const items = constructItemMapping[constructName];
+            if(!items || items.length === 0) throw new Error("該構面沒有題項，無法計算。");
 
-        // Mock functions for T-test, ANOVA, Correlation, Regression to maintain standalone nature
-        function runTtest() {
-            const indep = document.getElementById('indep-var').value;
-            const dep = document.getElementById('dep-var').value;
-            if(!indep || !dep) throw new Error("請選擇變項");
-            
-            let tableIndex = reportHistory.length + 1;
-            // Mock t-test result for demonstration
-            let html = `<div class="table-title">表4.${tableIndex} 不同【${indep}】在「${dep}」之獨立樣本 t 檢定表</div>`;
-            html += `<table class="academic-table"><thead><tr><th>分組</th><th>人數(N)</th><th>平均數(M)</th><th>標準差(SD)</th><th>t 值</th><th>p 值</th></tr></thead><tbody>`;
-            html += `<tr><td>組別 A</td><td>25</td><td>3.82</td><td>0.75</td><td rowspan="2">2.14*</td><td rowspan="2">0.038</td></tr>`;
-            html += `<tr><td>組別 B</td><td>25</td><td>3.21</td><td>0.88</td></tr>`;
-            html += `</tbody></table><p style="text-align:left; font-size:10pt;">註：* p < .05, ** p < .01, *** p < .001</p>`;
-            
-            document.getElementById('academic-output').innerHTML = html;
-            document.getElementById('prof-message').innerHTML = `t檢定主要用在「自變項只有兩組」的情況（例如男女）。請注意表中的 <i>p</i> 值，如果小於 0.05，代表兩組之間有統計上的顯著差異。在寫作時記得點出是「哪一組的平均數顯著高於另一組」。`;
-        }
+            // 1. 取得有效樣本並計算總分
+            let validRows = rawData.filter(row => items.every(item => !isNaN(parseFloat(row[item]))));
+            if(validRows.length < 6) throw new Error("有效樣本數過低，無法將資料分組運算。");
 
-        function runAnova() {
-            const indep = document.getElementById('indep-var').value;
-            const dep = document.getElementById('dep-var').value;
-            if(!indep || !dep) throw new Error("請選擇變項");
-            
-            // 1. 資料分組與計算各組統計量
-            const groups = {};
-            let totalN = 0;
-            let sum = 0;
-            
-            rawData.forEach(row => {
-                const groupVal = row[indep];
-                const depVal = parseFloat(row[dep]);
-                if (groupVal && !isNaN(depVal)) {
-                    if (!groups[groupVal]) groups[groupVal] = [];
-                    groups[groupVal].push(depVal);
-                    sum += depVal;
-                    totalN++;
-                }
+            validRows.forEach(row => {
+                let sum = 0;
+                items.forEach(item => sum += parseFloat(row[item]));
+                row._totalForDiscrimination = sum;
             });
 
-            const groupNames = Object.keys(groups);
-            const k = groupNames.length;
-            if (k < 3) throw new Error(`【${indep}】的組別少於3組，請改用「獨立樣本 t 檢定」，或確認資料是否正確。`);
-
-            const grandMean = sum / totalN;
-            let ssb = 0; // 組間變異
-            let ssw = 0; // 組內變異
-            const groupStats = [];
-
-            groupNames.forEach(g => {
-                const arr = groups[g];
-                const n = arr.length;
-                const mean = calcMean(arr);
-                const std = calcStd(arr, mean);
-                groupStats.push({ name: g, n: n, mean: mean, std: std });
-                
-                ssb += n * Math.pow(mean - grandMean, 2);
-                arr.forEach(val => {
-                    ssw += Math.pow(val - mean, 2);
-                });
-            });
-
-            const dfB = k - 1;
-            const dfW = totalN - k;
-            const msb = ssb / dfB;
-            const msw = ssw / dfW;
-            const fValue = msw === 0 ? 0 : (msb / msw);
-            
-            // 模擬 p 值 (針對前端系統運算展示)
-            let pValue = 0.152;
-            let stars = "";
-            if (fValue > 4.5) { pValue = (Math.random() * 0.01).toFixed(3); stars = "**"; }
-            else if (fValue > 2.5) { pValue = (Math.random() * 0.04).toFixed(3); stars = "*"; }
-            
-            const isSignificant = parseFloat(pValue) < 0.05;
+            // 2. 排序並分為高低分組 (前後 27%)
+            validRows.sort((a, b) => b._totalForDiscrimination - a._totalForDiscrimination);
+            let groupSize = Math.max(2, Math.floor(validRows.length * 0.27));
+            let highGroup = validRows.slice(0, groupSize);
+            let lowGroup = validRows.slice(validRows.length - groupSize);
 
             let html = '';
             let tableIndex = reportHistory.length + 1;
-            
-            // 產出表一：各組平均數與標準差
-            html += `<div class="table-title">表4.${tableIndex} 不同【${indep}】在「${dep}」之平均數與標準差</div>`;
-            html += `<table class="academic-table"><thead><tr><th>分組類別</th><th>人數 (N)</th><th>平均數 (M)</th><th>標準差 (SD)</th></tr></thead><tbody>`;
-            groupStats.forEach(g => {
-                html += `<tr><td>${g.name}</td><td>${g.n}</td><td>${g.mean.toFixed(2)}</td><td>${g.std.toFixed(2)}</td></tr>`;
-            });
-            html += `<tr><td><strong>總計</strong></td><td><strong>${totalN}</strong></td><td><strong>${grandMean.toFixed(2)}</strong></td><td><strong>-</strong></td></tr>`;
-            html += `</tbody></table><br>`;
-            
-            tableIndex++;
+            html += `<div class="table-title">表4.${tableIndex} 【${constructName}】各題項之鑑別度分析摘要表</div>`;
+            html += `<table class="academic-table"><thead><tr><th rowspan="2">題項</th><th colspan="2">高分組 (n=${groupSize})</th><th colspan="2">低分組 (n=${groupSize})</th><th rowspan="2">決斷值 (CR值)</th><th rowspan="2">p 值</th></tr><tr><th>M</th><th>SD</th><th>M</th><th>SD</th></tr></thead><tbody>`;
 
-            // 產出表二：ANOVA 摘要表
-            html += `<div class="table-title">表4.${tableIndex} 不同【${indep}】在「${dep}」之單因子變異數分析 (ANOVA) 表</div>`;
-            html += `<table class="academic-table"><thead><tr><th>變異來源</th><th>SS</th><th>df</th><th>MS</th><th>F 值</th><th>p 值</th></tr></thead><tbody>`;
-            html += `<tr><td>組間</td><td>${ssb.toFixed(2)}</td><td>${dfB}</td><td>${msb.toFixed(2)}</td><td>${fValue.toFixed(2)}${stars}</td><td>${pValue}</td></tr>`;
-            html += `<tr><td>組內</td><td>${ssw.toFixed(2)}</td><td>${dfW}</td><td>${msw.toFixed(2)}</td><td></td><td></td></tr>`;
-            html += `<tr><td>總和</td><td>${(ssb+ssw).toFixed(2)}</td><td>${dfB+dfW}</td><td></td><td></td><td></td></tr>`;
-            html += `</tbody></table><p style="text-align:left; font-size:10pt;">註：* p < .05, ** p < .01, *** p < .001</p><br>`;
-            
-            let profMsg = `ANOVA 分析結果出爐！<br>首先，我們看到整體 F 值為 ${fValue.toFixed(2)}，p 值為 ${pValue}。`;
-            
-            // 產出表三 (條件觸發)：事後檢定表
-            if (isSignificant) {
-                profMsg += `<br><br><span class="text-emerald-700 font-bold"><i class="fa-solid fa-check-circle mr-1"></i>達顯著水準 (p < 0.05)！</span> 這代表不同【${indep}】的受訪者，在「${dep}」上確實有顯著差異。老師已經自動幫你執行了「事後檢定 (Post-hoc)」並附在下方。寫作時，記得依據事後檢定表，具體點出「究竟是哪一組顯著大於哪一組」，這才是最有價值的實務發現！`;
-                tableIndex++;
-                
-                html += `<div class="table-title">表4.${tableIndex} 不同【${indep}】在「${dep}」之事後檢定比較表</div>`;
-                html += `<table class="academic-table"><thead><tr><th>(I) 組別</th><th>(J) 組別</th><th>平均數差異 (I-J)</th><th>顯著性 (p 值)</th></tr></thead><tbody>`;
-                
-                for(let i=0; i<groupStats.length; i++) {
-                    for(let j=i+1; j<groupStats.length; j++) {
-                        const diff = groupStats[i].mean - groupStats[j].mean;
-                        const isSigPH = Math.abs(diff) > (Math.sqrt(msw) * 0.5); // 模擬事後檢定門檻
-                        const pPH = isSigPH ? (Math.random() * 0.04).toFixed(3) : (Math.random() * 0.5 + 0.1).toFixed(3);
-                        const sigStar = isSigPH ? "*" : "";
-                        html += `<tr><td>${groupStats[i].name}</td><td>${groupStats[j].name}</td><td>${diff.toFixed(2)}${sigStar}</td><td>${pPH}</td></tr>`;
-                    }
+            items.forEach(item => {
+                let hData = highGroup.map(r => parseFloat(r[item]));
+                let lData = lowGroup.map(r => parseFloat(r[item]));
+                let hMean = calcMean(hData);
+                let hStd = calcStd(hData, hMean);
+                let lMean = calcMean(lData);
+                let lStd = calcStd(lData, lMean);
+
+                // 獨立樣本 t 檢定計算 (決斷值)
+                let v1 = hStd * hStd;
+                let v2 = lStd * lStd;
+                let sp = Math.sqrt( ((groupSize - 1) * v1 + (groupSize - 1) * v2) / (groupSize * 2 - 2) );
+                let t = 0;
+                if(sp > 0) {
+                    t = (hMean - lMean) / (sp * Math.sqrt(2 / groupSize));
                 }
-                html += `</tbody></table><p style="text-align:left; font-size:10pt;">註：* 差異在 .05 水準上顯著</p>`;
-            } else {
-                profMsg += `<br><br><span class="text-rose-700 font-bold"><i class="fa-solid fa-circle-info mr-1"></i>未達顯著水準 (p > 0.05)</span>。這代表不同【${indep}】在「${dep}」上沒有統計學上的差異，因此我們不需要進行事後檢定。這也是一個重要的研究發現，表示受訪者對該構面的看法，不會因為${indep}的不同而有所改變。`;
-            }
-            
-            document.getElementById('academic-output').innerHTML = html;
-            document.getElementById('prof-message').innerHTML = profMsg;
-        }
 
-        function runCorrelation() {
-            const xName = document.getElementById('var-x').value;
-            const yName = document.getElementById('var-y').value;
-            if(!xName || !yName) throw new Error("請選擇變項");
-            
-            // 提取有效的數據對
-            let validX = [];
-            let validY = [];
-            rawData.forEach(row => {
-                const vx = parseFloat(row[xName]);
-                const vy = parseFloat(row[yName]);
-                if (!isNaN(vx) && !isNaN(vy)) {
-                    validX.push(vx);
-                    validY.push(vy);
-                }
-            });
-
-            const n = validX.length;
-            if (n < 3) throw new Error("有效樣本數不足，無法計算相關性。");
-
-            // 計算平均數
-            const meanX = calcMean(validX);
-            const meanY = calcMean(validY);
-
-            // 計算共變異數與標準差的分子分母
-            let numerator = 0;
-            let sumSqX = 0;
-            let sumSqY = 0;
-
-            for (let i = 0; i < n; i++) {
-                const dx = validX[i] - meanX;
-                const dy = validY[i] - meanY;
-                numerator += dx * dy;
-                sumSqX += dx * dx;
-                sumSqY += dy * dy;
-            }
-
-            // 計算 Pearson r
-            let r = 0;
-            if (sumSqX !== 0 && sumSqY !== 0) {
-                r = numerator / Math.sqrt(sumSqX * sumSqY);
-            }
-
-            // 運用 t 分配檢定 r 的顯著性
-            let t = 0;
-            if (Math.abs(r) !== 1) {
-                t = r * Math.sqrt((n - 2) / (1 - r * r));
-            } else {
-                t = Infinity; // 完全相關
-            }
-            
-            const absT = Math.abs(t);
-            let stars = "";
-            if (absT > 3.29) { stars = "***"; }
-            else if (absT > 2.58) { stars = "**"; }
-            else if (absT > 1.96) { stars = "*"; }
-
-            // 符合 APA 7th 格式：小於 1 的數值，小數點前不加 0
-            let rStr = r.toFixed(3);
-            if (rStr.startsWith('0.')) rStr = rStr.substring(1);
-            else if (rStr.startsWith('-0.')) rStr = '-' + rStr.substring(2);
-
-            let tableIndex = reportHistory.length + 1;
-            let html = `<div class="table-title">表4.${tableIndex} 「${xName}」與「${yName}」之 Pearson 相關分析表</div>`;
-            html += `<table class="academic-table"><thead><tr><th>變項</th><th>1. ${xName}</th><th>2. ${yName}</th></tr></thead><tbody>`;
-            html += `<tr><td>1. ${xName}</td><td>1</td><td>${rStr}${stars}</td></tr>`;
-            html += `<tr><td>2. ${yName}</td><td>${rStr}${stars}</td><td>1</td></tr>`;
-            html += `</tbody></table><p style="text-align:left; font-size:10pt;">註：* p < .05, ** p < .01, *** p < .001</p>`;
-            
-            document.getElementById('academic-output').innerHTML = html;
-            document.getElementById('prof-message').innerHTML = `相關分析是在看兩個連續變數（構面）是否「同方向」變化。表中的相關係數 <i>r</i> = ${r.toFixed(2)}，這代表「${xName}」與「${yName}」呈現${r>0?'正':'負'}相關。寫作時，請依據 APA 7th 格式解釋星號（顯著性），但切記：相關不代表因果關係喔！`;
-        }
-
-        function runRegression() {
-            const indeps = Array.from(document.getElementById('indep-vars').selectedOptions).map(opt => opt.value);
-            const dep = document.getElementById('dep-var').value;
-            if(indeps.length === 0 || !dep) throw new Error("請選擇變項");
-            
-            let tableIndex = reportHistory.length + 1;
-            let html = `<div class="table-title">表4.${tableIndex} 預測「${dep}」之多元迴歸分析摘要表</div>`;
-            html += `<table class="academic-table"><thead><tr><th>自變項</th><th>未標準化係數 (B)</th><th>標準誤 (SE)</th><th>標準化係數 (β)</th><th>t 值</th><th>p 值</th></tr></thead><tbody>`;
-            
-            indeps.forEach((v, i) => {
-                const b = (Math.random() * 0.8).toFixed(2);
-                const beta = (Math.random() * 0.5).toFixed(2);
-                const p = (Math.random() * 0.1).toFixed(3);
-                html += `<tr><td>${v}</td><td>${b}</td><td>0.08</td><td>${beta}</td><td>2.${i}4</td><td>${p}</td></tr>`;
-            });
-            html += `</tbody></table>`;
-            html += `<p style="text-align:left; font-size:10pt; line-height:1.5;">模型解釋力：R² = .452, 調整後 R² = .435<br>模型適配度：F = 18.53***</p>`;
-            
-            document.getElementById('academic-output').innerHTML = html;
-            document.getElementById('prof-message').innerHTML = `這就是驗證你研究假說的最強武器：多元迴歸！在解釋這張表時，先看 R² (解釋變異量)，如果 R² = .452，代表這些自變項總共能解釋依變項 45.2% 的變動。接著看各個自變項的 β 係數與 <i>p</i> 值，找出究竟是誰的預測力最強！記得撰寫時依照 APA 7th 格式引用前人研究支持你的發現。`;
-        }
-
-        function exportToWord() {
-            if (reportHistory.length === 0) {
-                showToast('請先執行統計分析產生報表！');
-                return;
-            }
-
-            const preHtml = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-            <head>
-                <meta charset='utf-8'>
-                <title>論文統計分析報告</title>
-                <style>
-                    /* 嚴格遵照「南開科大長照系福祉所碩士學位論文格式製作教學簡報.pdf」設定 */
-                    @page {
-                        size: 21cm 29.7cm; /* A4 紙張 */
-                        margin: 4.0cm 2.0cm 2.0cm 4.0cm; /* 上4 下2 左4 右2 公分 */
-                        mso-page-orientation: portrait;
-                    }
-                    body {
-                        font-family: "Times New Roman", "標楷體", "DFKai-sb", serif; /* 英文Times New Roman, 中文標楷體 */
-                        font-size: 12pt;
-                        line-height: 1.5; /* 內文 1.5 倍行高 */
-                    }
-                    .table-title {
-                        text-align: center;
-                        font-family: "Times New Roman", "標楷體", "DFKai-sb", serif;
-                        font-weight: normal;
-                        font-size: 12pt;
-                        margin-top: 24pt;
-                        margin-bottom: 6pt;
-                        line-height: 1.0; /* 表標題單行間距 */
-                    }
-                    .academic-table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        text-align: center;
-                        font-family: "Times New Roman", "標楷體", "DFKai-sb", serif;
-                        font-size: 12pt;
-                        line-height: 1.0; /* 表格內文單行間距 */
-                        margin-bottom: 24pt;
-                    }
-                    /* 標準三線表設計 */
-                    .academic-table th {
-                        border-top: 2px solid black;
-                        border-bottom: 1px solid black;
-                        padding: 6px;
-                    }
-                    .academic-table td {
-                        padding: 6px;
-                        border: none;
-                    }
-                    .academic-table tr:last-child td {
-                        border-bottom: 2px solid black;
-                    }
-                </style>
-            </head>
-            <body>`;
-            
-            const postHtml = "</body></html>";
-            
-            // Clean up html string to remove tailwind classes that Word doesn't need
-            let content = reportHistory.join("<br>");
-            
-            const html = preHtml + content + postHtml;
-
-            const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = '碩士論文_第四章統計分析與三線表.doc';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            showToast('匯出成功！已為你生成符合南開格式與 APA 7th 的 Word 檔。');
-        }
-
-        function clearHistory() {
-            reportHistory = [];
-            showToast('歷史紀錄已清空，報表編號將重新起算。');
-        }
-
-    </script>
-</body>
-</html>
+                // APA 7th 顯著性與格式設定
+                let pValue = ".000";
+                let stars = "";
+                let absT = Math.abs(t);
+                if (absT > 3.29) { stars = "***"; pValue = "< .001"; }
+                else if (absT > 2
